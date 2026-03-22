@@ -6,17 +6,18 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
-    plan: starter
+    plan: free
     envVars:
       - key: NWS_USER_AGENT
-        value: MauiAlertHub/1.0 (contact@mauialerthub.com)
+        value: "MauiAlertHub/1.0 (contact@mauialerthub.com)"
       - key: DATABASE_URL
-        value: sqlite:///./maui_alert_hub.db
+        value: "sqlite:///./maui_alert_hub.db"
       - key: SCRAPE_INTERVAL_MINUTES
-        value: 5
+        value: "5"
       - key: LOG_LEVEL
         value: INFO
       - key: ENVIRONMENT
         value: production
+      # Set CORS_ORIGINS to your Vercel frontend URL in the Render dashboard
       - key: CORS_ORIGINS
-        sync: false  # Set this in the Render dashboard to your Vercel frontend URL
+        sync: false
