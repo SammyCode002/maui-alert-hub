@@ -36,16 +36,23 @@ export default function AlertCard({ alert }: AlertCardProps) {
       })
     : null
 
+  const glowStyle = {
+    borderLeftColor: alert.severity === 'extreme' ? '#dc2626'
+      : alert.severity === 'severe' ? '#ea580c'
+      : alert.severity === 'moderate' ? '#d97706'
+      : '#65a30d',
+    boxShadow: alert.severity === 'extreme'
+      ? '0 0 28px rgba(220, 38, 38, 0.22), 0 4px 20px rgba(0,0,0,0.4)'
+      : alert.severity === 'severe'
+      ? '0 0 20px rgba(234, 88, 12, 0.18), 0 4px 20px rgba(0,0,0,0.4)'
+      : '0 4px 20px rgba(0,0,0,0.3)',
+  }
+
   return (
     <div
-      className="card border-l-4 border-l-alert-moderate cursor-pointer hover:border-ocean-600/50 transition-colors"
+      className="card border-l-4 cursor-pointer transition-all hover:brightness-110"
       onClick={() => setExpanded(e => !e)}
-      style={{
-        borderLeftColor: alert.severity === 'extreme' ? '#dc2626'
-          : alert.severity === 'severe' ? '#ea580c'
-          : alert.severity === 'moderate' ? '#d97706'
-          : '#65a30d'
-      }}
+      style={glowStyle}
     >
       {/* Top: icon + headline + severity badge */}
       <div className="flex items-start gap-3 mb-2">

@@ -33,7 +33,7 @@ export default function RoadCard({ road }: RoadCardProps) {
     : 'Unknown'
 
   return (
-    <div className="card hover:border-ocean-600/50 transition-colors">
+    <div className="card hover:brightness-110 transition-all">
       {/* Top row: road name + status badge */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <h3 className="font-display font-semibold text-base text-white leading-tight">

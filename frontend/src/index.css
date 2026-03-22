@@ -4,7 +4,9 @@
 
 @layer base {
   body {
-    @apply bg-ocean-900 text-white antialiased;
+    @apply text-white antialiased;
+    background: linear-gradient(160deg, #060f1a 0%, #0b1f33 50%, #0c3547 100%);
+    min-height: 100vh;
     font-family: 'DM Sans', system-ui, sans-serif;
   }
 
@@ -26,9 +28,9 @@
 }
 
 @layer components {
-  /* Reusable card style */
+  /* Reusable card style — frosted glass */
   .card {
-    @apply bg-ocean-800/60 backdrop-blur-sm border border-ocean-700/50 rounded-2xl p-4;
+    @apply bg-white/[0.06] backdrop-blur-md border border-white/[0.09] rounded-2xl p-4 shadow-xl shadow-black/30;
   }
 
   /* Status badges */

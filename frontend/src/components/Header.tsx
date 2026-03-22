@@ -11,18 +11,18 @@ interface HeaderProps {
 
 export default function Header({ onRefresh, isRefreshing }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-50 bg-ocean-900/80 backdrop-blur-md border-b border-ocean-700/50">
+    <header className="sticky top-0 z-50 bg-black/20 backdrop-blur-xl border-b border-white/[0.07]">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
         {/* Logo + Title */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ocean-400 to-ocean-600 flex items-center justify-center shadow-lg shadow-ocean-500/20">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-ocean-400 to-ocean-700 flex items-center justify-center shadow-lg shadow-ocean-500/30 ring-1 ring-white/10">
             <Activity className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-display font-bold text-lg leading-tight">
+            <h1 className="font-display font-bold text-lg leading-tight text-gradient">
               Maui Alert Hub
             </h1>
-            <p className="text-ocean-400 text-xs">
+            <p className="text-ocean-500 text-xs">
               Roads, weather, and alerts
             </p>
           </div>

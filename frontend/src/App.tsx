@@ -64,11 +64,18 @@ export default function App() {
   const alertCount = weather.data?.alerts?.length ?? 0
 
   return (
-    <div className="min-h-screen bg-ocean-900">
+    <div className="min-h-screen">
+      {/* Ambient background orbs */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full bg-ocean-500/10 blur-[120px] translate-x-1/3 -translate-y-1/4" />
+        <div className="absolute top-1/2 left-0 w-[500px] h-[500px] rounded-full bg-cyan-900/20 blur-[100px] -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-ocean-700/15 blur-[90px] translate-y-1/3" />
+      </div>
+
       <Header onRefresh={handleRefresh} isRefreshing={isRefreshing} />
 
       {!isOnline && (
-        <div className="bg-amber-900/80 border-b border-amber-700/50 px-4 py-2 text-center">
+        <div className="bg-amber-500/10 backdrop-blur-sm border-b border-amber-500/20 px-4 py-2 text-center">
           <p className="text-amber-300 text-sm">
             You're offline. Showing cached data.
           </p>
@@ -107,7 +114,7 @@ export default function App() {
               ))}
             </div>
           ) : (
-            <div className="card bg-green-900/20 border-green-700/30">
+            <div className="card border-green-500/20" style={{ boxShadow: '0 0 20px rgba(34,197,94,0.08), 0 4px 20px rgba(0,0,0,0.3)' }}>
               <p className="text-green-400 text-sm text-center py-2">
                 No active weather alerts for Maui. All clear!
               </p>
