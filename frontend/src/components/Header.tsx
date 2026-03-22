@@ -3,6 +3,7 @@
  */
 
 import { RefreshCw, Activity } from 'lucide-react'
+import NotificationButton from './NotificationButton'
 
 interface HeaderProps {
   onRefresh: () => void
@@ -28,6 +29,9 @@ export default function Header({ onRefresh, isRefreshing }: HeaderProps) {
           </div>
         </div>
 
+        {/* Right side: notification bell + refresh */}
+        <div className="flex items-center gap-2">
+        <NotificationButton />
         {/* Refresh button */}
         <button
           onClick={onRefresh}
@@ -39,6 +43,7 @@ export default function Header({ onRefresh, isRefreshing }: HeaderProps) {
             className={`w-4 h-4 text-ocean-300 ${isRefreshing ? 'animate-spin' : ''}`}
           />
         </button>
+        </div>
       </div>
     </header>
   )

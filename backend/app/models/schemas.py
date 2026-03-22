@@ -161,3 +161,101 @@ class EarthquakeResponse(BaseModel):
     earthquakes: list[Earthquake]
     total: int
     last_updated: Optional[datetime] = None
+
+
+# ============================================================
+# Volcanic Activity Models
+# ============================================================
+
+class VolcanicAlert(BaseModel):
+    """
+    A volcanic activity notification from the USGS Volcano Notification Service.
+
+    Alert levels (ground hazards): Normal, Advisory, Watch, Warning
+    Aviation colors: Green, Yellow, Orange, Red
+    """
+    id: str = Field(..., description="Notification ID")
+    volcano_name: str = Field(..., description="Volcano name (e.g., 'Kīlauea')")
+    alert_level: str = Field(..., description="Alert level: Normal/Advisory/Watch/Warning")
+    aviation_color: str = Field(..., description="Aviation color code: Green/Yellow/Orange/Red")
+    message: str = Field(..., description="Notification summary text")
+    published: datetime = Field(..., description="Publication timestamp")
+    url: str = Field(default="", description="Link to full notification")
+
+
+class VolcanicResponse(BaseModel):
+    """API response wrapper for volcanic activity data."""
+    alerts: list[VolcanicAlert]
+    total: int
+    last_updated: Optional[datetime] = None
+
+
+# ============================================================
+# Surf Report Models
+# ============================================================
+
+class SurfSpot(BaseModel):
+    """
+    Current surf conditions at a NOAA NDBC buoy station.
+
+    Wave height is converted from meters to feet.
+    Water temperature is converted from Celsius to Fahrenheit.
+    """
+    buoy_id: str = Field(..., description="NDBC station ID")
+    name: str = Field(..., description="Human-readable location name")
+    wave_height_ft: Optional[float] = Field(None, description="Significant wave height in feet")
+    period_sec: Optional[float] = Field(None, description="Dominant wave period in seconds")
+    direction: Optional[str] = Field(None, description="Wave direction (e.g., 'NW')")
+    water_temp_f: Optional[float] = Field(None, description="Sea surface temperature in Fahrenheit")
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class SurfResponse(BaseModel):
+    """API response wrapper for surf data."""
+    spots: list[SurfSpot]
+    last_updated: Optional[datetime] = None
+
+
+# ============================================================
+# Push Notification Models
+# ============================================================
+
+class PushSubscriptionKeys(BaseModel):
+    """Web Push subscription key material."""
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionCreate(BaseModel):
+    """Incoming subscribe request body from the browser."""
+    endpoint: str
+    keys: PushSubscriptionKeys
+
+
+# ============================================================
+# Community Alert Models (admin-posted)
+# ============================================================
+
+class CommunityAlert(BaseModel):
+    """A manually-posted community alert (power outage, water main, etc.)."""
+    id: int
+    title: str
+    message: str
+    severity: str = "warning"
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+    is_active: bool = True
+
+
+class CommunityAlertCreate(BaseModel):
+    """Request body for creating a community alert."""
+    title: str = Field(..., min_length=3, max_length=120)
+    message: str = Field(..., min_length=10, max_length=1000)
+    severity: str = Field(default="warning", pattern="^(info|warning|danger)$")
+    expires_at: Optional[datetime] = None
+
+
+class CommunityAlertsResponse(BaseModel):
+    """API response wrapper for community alerts."""
+    alerts: list[CommunityAlert]
+    total: int

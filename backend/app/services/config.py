@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     # Environment
     environment: str = "development"
 
+    # Web Push (VAPID) — generate with backend/generate_vapid_keys.py
+    # Add VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY to Render env vars
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+    vapid_email: str = "mailto:contact@mauialerthub.com"
+
+    # Admin panel — set a strong secret in Render env vars as ADMIN_TOKEN
+    admin_token: str = "change-me-in-production"
+
 
 # Single global instance. Import this everywhere.
 settings = Settings()

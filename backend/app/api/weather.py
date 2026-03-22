@@ -13,6 +13,7 @@ from fastapi import APIRouter
 
 from app.models.schemas import WeatherResponse
 from app.scrapers.nws_client import fetch_alerts, fetch_forecast
+from app.services.push_service import check_and_notify_new_alerts
 
 logger = logging.getLogger("maui_alert_hub.api.weather")
 
@@ -28,6 +29,9 @@ async def get_weather():
     """
     alerts = await fetch_alerts()
     forecasts = await fetch_forecast()
+
+    # Check for new alerts and push to subscribers (no-op if VAPID not configured)
+    await check_and_notify_new_alerts(alerts)
 
     return WeatherResponse(
         alerts=alerts,

@@ -5,11 +5,13 @@
  *   Red = Closed, Amber = Restricted, Green = Open
  */
 
-import { MapPin, Clock } from 'lucide-react'
+import { MapPin, Clock, Star } from 'lucide-react'
 import type { RoadClosure, RoadStatus } from '../utils/types'
 
 interface RoadCardProps {
   road: RoadClosure
+  isSaved?: boolean
+  onToggleSave?: (id: string) => void
 }
 
 const statusConfig: Record<RoadStatus, { badge: string; label: string }> = {
@@ -19,7 +21,7 @@ const statusConfig: Record<RoadStatus, { badge: string; label: string }> = {
   unknown: { badge: 'badge-restricted', label: 'Unknown' },
 }
 
-export default function RoadCard({ road }: RoadCardProps) {
+export default function RoadCard({ road, isSaved = false, onToggleSave }: RoadCardProps) {
   const config = statusConfig[road.status] || statusConfig.unknown
 
   // Format the timestamp to something readable
@@ -34,12 +36,23 @@ export default function RoadCard({ road }: RoadCardProps) {
 
   return (
     <div className="card hover:brightness-110 transition-all">
-      {/* Top row: road name + status badge */}
+      {/* Top row: road name + status badge + save star */}
       <div className="flex items-start justify-between gap-3 mb-2">
-        <h3 className="font-display font-semibold text-base text-white leading-tight">
+        <h3 className="font-display font-semibold text-base text-white leading-tight flex-1">
           {road.road_name}
         </h3>
-        <span className={config.badge}>{config.label}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className={config.badge}>{config.label}</span>
+          {onToggleSave && road.id && (
+            <button
+              onClick={e => { e.stopPropagation(); onToggleSave(road.id!) }}
+              className="text-ocean-600 hover:text-amber-400 transition-colors"
+              aria-label={isSaved ? 'Unsave route' : 'Save route'}
+            >
+              <Star className={`w-4 h-4 ${isSaved ? 'fill-amber-400 text-amber-400' : ''}`} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bottom row: location + timestamp */}

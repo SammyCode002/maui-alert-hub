@@ -6,38 +6,58 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
-import { MapPin, CloudLightning, Route, Activity } from 'lucide-react'
+import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone } from 'lucide-react'
 import Header from './components/Header'
 import RoadCard from './components/RoadCard'
 import AlertCard from './components/AlertCard'
 import ForecastBar from './components/ForecastBar'
 import EarthquakeCard from './components/EarthquakeCard'
+import VolcanicCard from './components/VolcanicCard'
+import SurfCard from './components/SurfCard'
 import ChecklistSection from './components/ChecklistSection'
 import InstallBanner from './components/InstallBanner'
+import AdminPage from './components/AdminPage'
 import { LoadingSpinner, ErrorMessage, EmptyState } from './components/StatusStates'
 import { useApi } from './hooks/useApi'
-import { getRoadClosures, getWeather, getEarthquakes } from './utils/api'
+import { useSavedRoutes } from './hooks/useSavedRoutes'
+import { getRoadClosures, getWeather, getEarthquakes, getVolcanic, getSurf, getCommunityAlerts } from './utils/api'
 import { timeAgo } from './utils/time'
+import type { CommunityAlert } from './utils/types'
 
 export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [page, setPage] = useState<'home' | 'admin'>(() =>
+    window.location.hash === '#admin' ? 'admin' : 'home'
+  )
 
-  // Fetch road closures
+  // Hash-based routing (no React Router needed)
+  useEffect(() => {
+    const onHash = () => setPage(window.location.hash === '#admin' ? 'admin' : 'home')
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  // Saved routes
+  const { isSaved, toggle: toggleSaved } = useSavedRoutes()
+
+  // Data fetching
   const roads = useApi(getRoadClosures)
-
-  // Fetch weather (alerts + forecast)
   const weather = useApi(getWeather)
-
-  // Fetch earthquakes
   const quakes = useApi(getEarthquakes)
+  const volcanic = useApi(getVolcanic)
+  const surf = useApi(getSurf)
+  const community = useApi(getCommunityAlerts)
 
   // Refresh all data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
-    await Promise.all([roads.refresh(), weather.refresh(), quakes.refresh()])
+    await Promise.all([
+      roads.refresh(), weather.refresh(), quakes.refresh(),
+      volcanic.refresh(), surf.refresh(), community.refresh(),
+    ])
     setIsRefreshing(false)
-  }, [roads, weather, quakes])
+  }, [roads, weather, quakes, volcanic, surf, community])
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
@@ -45,9 +65,12 @@ export default function App() {
       roads.refresh()
       weather.refresh()
       quakes.refresh()
+      volcanic.refresh()
+      surf.refresh()
+      community.refresh()
     }, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [roads.refresh, weather.refresh, quakes.refresh])
+  }, [roads.refresh, weather.refresh, quakes.refresh, volcanic.refresh, surf.refresh, community.refresh])
 
   // Track online/offline status
   useEffect(() => {
@@ -63,6 +86,11 @@ export default function App() {
 
   // Count active alerts for the badge
   const alertCount = weather.data?.alerts?.length ?? 0
+
+  if (page === 'admin') return <AdminPage />
+
+  // Active community alerts (non-null, already filtered by backend)
+  const communityAlerts: CommunityAlert[] = community.data?.alerts ?? []
 
   return (
     <div className="min-h-screen">
@@ -85,6 +113,40 @@ export default function App() {
       )}
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+
+        {/* ============================================= */}
+        {/* COMMUNITY ALERTS (admin-posted)               */}
+        {/* ============================================= */}
+        {communityAlerts.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Megaphone className="w-5 h-5 text-red-400" />
+              <h2 className="font-display font-bold text-lg">Community Alerts</h2>
+              <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                {communityAlerts.length}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {communityAlerts.map(alert => {
+                const colors = {
+                  danger:  { border: '#dc2626', glow: 'rgba(220,38,38,0.2)' },
+                  warning: { border: '#d97706', glow: 'rgba(217,119,6,0.15)' },
+                  info:    { border: '#0891b2', glow: 'rgba(8,145,178,0.1)' },
+                }
+                const c = colors[alert.severity] ?? colors.warning
+                return (
+                  <div key={alert.id} className="card border-l-4" style={{ borderLeftColor: c.border, boxShadow: `0 0 20px ${c.glow}, 0 4px 20px rgba(0,0,0,0.4)` }}>
+                    <p className="font-display font-semibold text-white text-sm">{alert.title}</p>
+                    <p className="text-ocean-300 text-sm mt-1">{alert.message}</p>
+                    {alert.expires_at && (
+                      <p className="text-ocean-500 text-xs mt-2">Expires {timeAgo(alert.expires_at)}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ============================================= */}
         {/* WEATHER ALERTS SECTION                        */}
@@ -164,7 +226,12 @@ export default function App() {
           ) : roads.data?.roads && roads.data.roads.length > 0 ? (
             <div className="space-y-3">
               {roads.data.roads.map((road, idx) => (
-                <RoadCard key={road.id || idx} road={road} />
+                <RoadCard
+                  key={road.id || idx}
+                  road={road}
+                  isSaved={road.id ? isSaved(road.id) : false}
+                  onToggleSave={road.id ? toggleSaved : undefined}
+                />
               ))}
             </div>
           ) : (
@@ -205,6 +272,47 @@ export default function App() {
             </div>
           )}
         </section>
+
+        {/* ============================================= */}
+        {/* VOLCANIC ACTIVITY SECTION                     */}
+        {/* ============================================= */}
+        {volcanic.data?.alerts && volcanic.data.alerts.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Flame className="w-5 h-5 text-orange-400" />
+              <h2 className="font-display font-bold text-lg">Volcanic Activity</h2>
+              <span className="text-ocean-500 text-xs ml-1">Hawaii volcanoes</span>
+            </div>
+            <div className="space-y-3">
+              {volcanic.data.alerts.map(alert => (
+                <VolcanicCard key={alert.id} alert={alert} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ============================================= */}
+        {/* SURF REPORT SECTION                           */}
+        {/* ============================================= */}
+        {surf.data?.spots && surf.data.spots.length > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Waves className="w-5 h-5 text-ocean-400" />
+              <h2 className="font-display font-bold text-lg">Surf Report</h2>
+              <span className="text-ocean-500 text-xs ml-1">NOAA buoy data</span>
+              {timeAgo(surf.data.last_updated) && (
+                <span className="ml-auto text-ocean-600 text-xs">
+                  {timeAgo(surf.data.last_updated)}
+                </span>
+              )}
+            </div>
+            <div className="space-y-3">
+              {surf.data.spots.map(spot => (
+                <SurfCard key={spot.buoy_id} spot={spot} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ============================================= */}
         {/* EMERGENCY PREP CHECKLIST                      */}

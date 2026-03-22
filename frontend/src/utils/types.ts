@@ -81,3 +81,63 @@ export interface EarthquakeResponse {
   total: number
   last_updated: string | null
 }
+
+// ============================================================
+// Volcanic Activity Types
+// ============================================================
+
+export interface VolcanicAlert {
+  id: string
+  volcano_name: string
+  alert_level: string
+  aviation_color: string
+  message: string
+  published: string
+  url: string
+}
+
+export interface VolcanicResponse {
+  alerts: VolcanicAlert[]
+  total: number
+  last_updated: string | null
+}
+
+// ============================================================
+// Surf Types
+// ============================================================
+
+export interface SurfSpot {
+  buoy_id: string
+  name: string
+  wave_height_ft: number | null
+  period_sec: number | null
+  direction: string | null
+  water_temp_f: number | null
+  updated_at: string
+}
+
+export interface SurfResponse {
+  spots: SurfSpot[]
+  last_updated: string | null
+}
+
+// ============================================================
+// Community Alert Types
+// ============================================================
+
+export type AlertSeverityLevel = 'info' | 'warning' | 'danger'
+
+export interface CommunityAlert {
+  id: number
+  title: string
+  message: string
+  severity: AlertSeverityLevel
+  created_at: string
+  expires_at: string | null
+  is_active: boolean
+}
+
+export interface CommunityAlertsResponse {
+  alerts: CommunityAlert[]
+  total: number
+}
