@@ -42,11 +42,6 @@ export default function RoadCard({ road }: RoadCardProps) {
         <span className={config.badge}>{config.label}</span>
       </div>
 
-      {/* Description */}
-      <p className="text-ocean-300 text-sm leading-relaxed mb-3">
-        {road.description}
-      </p>
-
       {/* Bottom row: location + timestamp */}
       <div className="flex items-center gap-4 text-ocean-400 text-xs">
         {road.location && (
