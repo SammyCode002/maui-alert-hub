@@ -8,6 +8,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone, Wind, TriangleAlert, Map } from 'lucide-react'
 import Header from './components/Header'
+import BottomNav from './components/BottomNav'
+import type { NavTab } from './components/BottomNav'
 import RoadCard from './components/RoadCard'
 import AlertCard from './components/AlertCard'
 import ForecastBar from './components/ForecastBar'
@@ -34,6 +36,7 @@ import { FORECAST_CITIES } from './utils/types'
 export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [activeTab, setActiveTab] = useState<NavTab>('alerts')
   const [showMap, setShowMap] = useState(false)
   const [showSirens, setShowSirens] = useState(false)
   const [forecastCity, setForecastCity] = useState<ForecastCityKey>('kahului')
@@ -105,6 +108,7 @@ export default function App() {
 
   const alertCount = weather.data?.alerts?.length ?? 0
   const tsunamiCount = tsunami.data?.alerts?.length ?? 0
+  const totalAlertBadge = tsunamiCount + alertCount + (community.data?.alerts?.length ?? 0)
 
   if (page === 'admin') return <AdminPage />
 
@@ -131,317 +135,287 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+      {/* Bottom nav */}
+      <BottomNav active={activeTab} onChange={setActiveTab} alertBadge={totalAlertBadge} />
+
+      {/* Extra bottom padding so content doesn't hide behind nav bar */}
+      <main className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-8">
 
         {/* ============================================= */}
-        {/* TSUNAMI ALERTS (highest priority)             */}
+        {/* ALERTS TAB                                    */}
         {/* ============================================= */}
-        {tsunamiCount > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <TriangleAlert className="w-5 h-5 text-red-400" />
-              <h2 className="font-display font-bold text-lg">Tsunami Alerts</h2>
-              <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
-                {tsunamiCount} ACTIVE
-              </span>
-            </div>
-            <div className="space-y-3">
-              {tsunami.data!.alerts.map((alert, idx) => (
-                <TsunamiCard key={alert.id ?? idx} alert={alert} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ============================================= */}
-        {/* COMMUNITY ALERTS (admin-posted)               */}
-        {/* ============================================= */}
-        {communityAlerts.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Megaphone className="w-5 h-5 text-red-400" />
-              <h2 className="font-display font-bold text-lg">Community Alerts</h2>
-              <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">
-                {communityAlerts.length}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {communityAlerts.map(alert => {
-                const colors = {
-                  danger:  { border: '#dc2626', glow: 'rgba(220,38,38,0.2)' },
-                  warning: { border: '#d97706', glow: 'rgba(217,119,6,0.15)' },
-                  info:    { border: '#0891b2', glow: 'rgba(8,145,178,0.1)' },
-                }
-                const c = colors[alert.severity] ?? colors.warning
-                return (
-                  <div key={alert.id} className="card border-l-4" style={{ borderLeftColor: c.border, boxShadow: `0 0 20px ${c.glow}, 0 4px 20px rgba(0,0,0,0.4)` }}>
-                    <p className="font-display font-semibold text-white text-sm">{alert.title}</p>
-                    <p className="text-ocean-300 text-sm mt-1">{alert.message}</p>
-                    {alert.expires_at && (
-                      <p className="text-ocean-500 text-xs mt-2">Expires {timeAgo(alert.expires_at)}</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* ============================================= */}
-        {/* WEATHER ALERTS SECTION                        */}
-        {/* ============================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <CloudLightning className="w-5 h-5 text-lava-400" />
-            <h2 className="font-display font-bold text-lg">Weather Alerts</h2>
-            {alertCount > 0 && (
-              <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">
-                {alertCount} active
-              </span>
-            )}
-            {timeAgo(weather.data?.last_updated) && (
-              <span className="ml-auto text-ocean-600 text-xs">
-                {timeAgo(weather.data?.last_updated)}
-              </span>
-            )}
-          </div>
-
-          {weather.loading ? (
-            <LoadingSpinner message="Checking NWS alerts..." />
-          ) : weather.error ? (
-            <ErrorMessage message={weather.error} onRetry={weather.refresh} />
-          ) : weather.data?.alerts && weather.data.alerts.length > 0 ? (
-            <div className="space-y-3">
-              {weather.data.alerts.map((alert, idx) => (
-                <AlertCard key={alert.id || idx} alert={alert} />
-              ))}
-            </div>
-          ) : (
-            <div className="card border-green-500/20" style={{ boxShadow: '0 0 20px rgba(34,197,94,0.08), 0 4px 20px rgba(0,0,0,0.3)' }}>
-              <p className="text-green-400 text-sm text-center py-2">
-                No active weather alerts for Maui. All clear!
-              </p>
-            </div>
+        {activeTab === 'alerts' && <>
+          {tsunamiCount > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <TriangleAlert className="w-5 h-5 text-red-400" />
+                <h2 className="font-display font-bold text-lg">Tsunami Alerts</h2>
+                <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                  {tsunamiCount} ACTIVE
+                </span>
+              </div>
+              <div className="space-y-3">
+                {tsunami.data!.alerts.map((alert, idx) => (
+                  <TsunamiCard key={alert.id ?? idx} alert={alert} />
+                ))}
+              </div>
+            </section>
           )}
-        </section>
 
-        {/* ============================================= */}
-        {/* FORECAST BAR with city selector               */}
-        {/* ============================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <MapPin className="w-5 h-5 text-ocean-400" />
-            <h2 className="font-display font-bold text-lg">Forecast</h2>
-          </div>
+          {communityAlerts.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Megaphone className="w-5 h-5 text-red-400" />
+                <h2 className="font-display font-bold text-lg">Community Alerts</h2>
+                <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {communityAlerts.length}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {communityAlerts.map(alert => {
+                  const colors = {
+                    danger:  { border: '#dc2626', glow: 'rgba(220,38,38,0.2)' },
+                    warning: { border: '#d97706', glow: 'rgba(217,119,6,0.15)' },
+                    info:    { border: '#0891b2', glow: 'rgba(8,145,178,0.1)' },
+                  }
+                  const c = colors[alert.severity] ?? colors.warning
+                  return (
+                    <div key={alert.id} className="card border-l-4" style={{ borderLeftColor: c.border, boxShadow: `0 0 20px ${c.glow}, 0 4px 20px rgba(0,0,0,0.4)` }}>
+                      <p className="font-display font-semibold text-white text-sm">{alert.title}</p>
+                      <p className="text-ocean-300 text-sm mt-1">{alert.message}</p>
+                      {alert.expires_at && (
+                        <p className="text-ocean-500 text-xs mt-2">Expires {timeAgo(alert.expires_at)}</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
-          {/* City selector tabs */}
-          <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
-            {(Object.entries(FORECAST_CITIES) as [ForecastCityKey, string][]).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setForecastCity(key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-                  forecastCity === key
-                    ? 'bg-ocean-500 text-white'
-                    : 'bg-white/[0.05] text-ocean-400 hover:bg-white/[0.10] border border-white/[0.07]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {weather.loading ? (
-            <LoadingSpinner message={`Checking forecast for ${FORECAST_CITIES[forecastCity]}...`} />
-          ) : weather.data?.forecasts && weather.data.forecasts.length > 0 ? (
-            <ForecastBar forecasts={weather.data.forecasts} />
-          ) : null}
-        </section>
-
-        {/* ============================================= */}
-        {/* AIR QUALITY / VOG                             */}
-        {/* ============================================= */}
-        {aqi.data && aqi.data.readings.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Wind className="w-5 h-5 text-cyan-400" />
-              <h2 className="font-display font-bold text-lg">Air Quality</h2>
-              {aqi.data.is_vog_advisory && (
-                <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-2 py-0.5 rounded-full">
-                  Vog Advisory
+              <CloudLightning className="w-5 h-5 text-lava-400" />
+              <h2 className="font-display font-bold text-lg">Weather Alerts</h2>
+              {alertCount > 0 && (
+                <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {alertCount} active
                 </span>
               )}
-              <span className="text-ocean-500 text-xs ml-1">EPA AirNow</span>
+              {timeAgo(weather.data?.last_updated) && (
+                <span className="ml-auto text-ocean-600 text-xs">{timeAgo(weather.data?.last_updated)}</span>
+              )}
             </div>
-            <AirQualityCard data={aqi.data} />
+            {weather.loading ? (
+              <LoadingSpinner message="Checking NWS alerts..." />
+            ) : weather.error ? (
+              <ErrorMessage message={weather.error} onRetry={weather.refresh} />
+            ) : weather.data?.alerts && weather.data.alerts.length > 0 ? (
+              <div className="space-y-3">
+                {weather.data.alerts.map((alert, idx) => (
+                  <AlertCard key={alert.id || idx} alert={alert} />
+                ))}
+              </div>
+            ) : (
+              <div className="card border-green-500/20" style={{ boxShadow: '0 0 20px rgba(34,197,94,0.08), 0 4px 20px rgba(0,0,0,0.3)' }}>
+                <p className="text-green-400 text-sm text-center py-2">No active weather alerts for Maui. All clear!</p>
+              </div>
+            )}
           </section>
-        )}
+        </>}
 
         {/* ============================================= */}
-        {/* ROAD CLOSURES SECTION                         */}
+        {/* ROADS TAB                                     */}
         {/* ============================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Route className="w-5 h-5 text-lava-400" />
-            <h2 className="font-display font-bold text-lg">Road Closures</h2>
-            {roads.data && roads.data.total > 0 && (
-              <span className="bg-lava-500/20 text-lava-400 text-xs font-bold px-2 py-0.5 rounded-full">
-                {roads.data.total} reported
-              </span>
-            )}
-            {timeAgo(roads.data?.last_scraped) && (
-              <span className="ml-auto text-ocean-600 text-xs">
-                {timeAgo(roads.data?.last_scraped)}
-              </span>
-            )}
-          </div>
-
-          {roads.loading ? (
-            <LoadingSpinner message="Checking road conditions..." />
-          ) : roads.error ? (
-            <ErrorMessage message={roads.error} onRetry={roads.refresh} />
-          ) : roadsList.length > 0 ? (
-            <div className="space-y-3">
-              {roadsList.map((road, idx) => (
-                <RoadCard
-                  key={road.id || idx}
-                  road={road}
-                  isSaved={road.id ? isSaved(road.id) : false}
-                  onToggleSave={road.id ? toggleSaved : undefined}
-                />
-              ))}
+        {activeTab === 'roads' && <>
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Route className="w-5 h-5 text-lava-400" />
+              <h2 className="font-display font-bold text-lg">Road Closures</h2>
+              {roads.data && roads.data.total > 0 && (
+                <span className="bg-lava-500/20 text-lava-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {roads.data.total} reported
+                </span>
+              )}
+              {timeAgo(roads.data?.last_scraped) && (
+                <span className="ml-auto text-ocean-600 text-xs">{timeAgo(roads.data?.last_scraped)}</span>
+              )}
             </div>
-          ) : (
-            <EmptyState message="No road closures reported. Drive safe!" />
-          )}
-        </section>
+            {roads.loading ? (
+              <LoadingSpinner message="Checking road conditions..." />
+            ) : roads.error ? (
+              <ErrorMessage message={roads.error} onRetry={roads.refresh} />
+            ) : roadsList.length > 0 ? (
+              <div className="space-y-3">
+                {roadsList.map((road, idx) => (
+                  <RoadCard
+                    key={road.id || idx}
+                    road={road}
+                    isSaved={road.id ? isSaved(road.id) : false}
+                    onToggleSave={road.id ? toggleSaved : undefined}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState message="No road closures reported. Drive safe!" />
+            )}
+          </section>
+
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <Map className="w-5 h-5 text-ocean-400" />
+              <h2 className="font-display font-bold text-lg">Maui Map</h2>
+              <button
+                onClick={() => setShowMap(m => !m)}
+                className="ml-auto text-xs text-ocean-400 hover:text-ocean-200 transition-colors"
+              >
+                {showMap ? 'Hide map' : 'Show map'}
+              </button>
+            </div>
+            {showMap && (
+              <>
+                <div className="flex items-center gap-3 mb-3">
+                  <button
+                    onClick={() => setShowSirens(s => !s)}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-colors ${
+                      showSirens
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        : 'bg-white/[0.05] text-ocean-500 border-white/[0.07] hover:bg-white/[0.10]'
+                    }`}
+                  >
+                    📢 {showSirens ? 'Hide sirens' : 'Show tsunami sirens'}
+                  </button>
+                  <span className="text-ocean-600 text-xs">Siren locations are approximate</span>
+                </div>
+                <MapView roads={roadsList} showSirens={showSirens} />
+              </>
+            )}
+          </section>
+        </>}
 
         {/* ============================================= */}
-        {/* ROAD MAP                                      */}
+        {/* WEATHER TAB                                   */}
         {/* ============================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Map className="w-5 h-5 text-ocean-400" />
-            <h2 className="font-display font-bold text-lg">Maui Map</h2>
-            <button
-              onClick={() => setShowMap(m => !m)}
-              className="ml-auto text-xs text-ocean-400 hover:text-ocean-200 transition-colors"
-            >
-              {showMap ? 'Hide map' : 'Show map'}
-            </button>
-          </div>
-
-          {showMap && (
-            <>
-              <div className="flex items-center gap-3 mb-3">
+        {activeTab === 'weather' && <>
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-5 h-5 text-ocean-400" />
+              <h2 className="font-display font-bold text-lg">Forecast</h2>
+            </div>
+            <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
+              {(Object.entries(FORECAST_CITIES) as [ForecastCityKey, string][]).map(([key, label]) => (
                 <button
-                  onClick={() => setShowSirens(s => !s)}
-                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-colors ${
-                    showSirens
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      : 'bg-white/[0.05] text-ocean-500 border-white/[0.07] hover:bg-white/[0.10]'
+                  key={key}
+                  onClick={() => setForecastCity(key)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                    forecastCity === key
+                      ? 'bg-ocean-500 text-white'
+                      : 'bg-white/[0.05] text-ocean-400 hover:bg-white/[0.10] border border-white/[0.07]'
                   }`}
                 >
-                  📢 {showSirens ? 'Hide sirens' : 'Show tsunami sirens'}
+                  {label}
                 </button>
-                <span className="text-ocean-600 text-xs">Siren locations are approximate</span>
-              </div>
-              <MapView roads={roadsList} showSirens={showSirens} />
-            </>
-          )}
-        </section>
-
-        {/* ============================================= */}
-        {/* EARTHQUAKE SECTION                            */}
-        {/* ============================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-ocean-400" />
-            <h2 className="font-display font-bold text-lg">Recent Earthquakes</h2>
-            {quakes.data && quakes.data.total > 0 && (
-              <span className="bg-ocean-700/40 text-ocean-300 text-xs font-bold px-2 py-0.5 rounded-full">
-                {quakes.data.total} nearby
-              </span>
-            )}
-            <span className="text-ocean-500 text-xs ml-1">M2.5+, 300km radius</span>
-          </div>
-
-          {quakes.loading ? (
-            <LoadingSpinner message="Checking USGS earthquake feed..." />
-          ) : quakes.error ? (
-            <ErrorMessage message={quakes.error} onRetry={quakes.refresh} />
-          ) : quakes.data?.earthquakes && quakes.data.earthquakes.length > 0 ? (
-            <div className="space-y-3">
-              {quakes.data.earthquakes.map(quake => (
-                <EarthquakeCard key={quake.id} quake={quake} />
               ))}
             </div>
-          ) : (
-            <div className="card border-ocean-700/20">
-              <p className="text-ocean-400 text-sm text-center py-2">
-                No earthquakes above M2.5 near Hawaii recently.
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* ============================================= */}
-        {/* VOLCANIC ACTIVITY SECTION                     */}
-        {/* ============================================= */}
-        {volcanic.data?.alerts && volcanic.data.alerts.length > 0 && (
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Flame className="w-5 h-5 text-orange-400" />
-              <h2 className="font-display font-bold text-lg">Volcanic Activity</h2>
-              <span className="text-ocean-500 text-xs ml-1">Hawaii volcanoes</span>
-            </div>
-            <div className="space-y-3">
-              {volcanic.data.alerts.map(alert => (
-                <VolcanicCard key={alert.id} alert={alert} />
-              ))}
-            </div>
+            {weather.loading ? (
+              <LoadingSpinner message={`Checking forecast for ${FORECAST_CITIES[forecastCity]}...`} />
+            ) : weather.data?.forecasts && weather.data.forecasts.length > 0 ? (
+              <ForecastBar forecasts={weather.data.forecasts} />
+            ) : null}
           </section>
-        )}
+
+          {aqi.data && aqi.data.readings.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Wind className="w-5 h-5 text-cyan-400" />
+                <h2 className="font-display font-bold text-lg">Air Quality</h2>
+                {aqi.data.is_vog_advisory && (
+                  <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                    Vog Advisory
+                  </span>
+                )}
+                <span className="text-ocean-500 text-xs ml-1">EPA AirNow</span>
+              </div>
+              <AirQualityCard data={aqi.data} />
+            </section>
+          )}
+        </>}
 
         {/* ============================================= */}
-        {/* SURF REPORT SECTION                           */}
+        {/* ACTIVITY TAB                                  */}
         {/* ============================================= */}
-        {surf.data?.spots && surf.data.spots.length > 0 && (
+        {activeTab === 'activity' && <>
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Waves className="w-5 h-5 text-ocean-400" />
-              <h2 className="font-display font-bold text-lg">Surf Report</h2>
-              <span className="text-ocean-500 text-xs ml-1">NOAA buoy data</span>
-              {timeAgo(surf.data.last_updated) && (
-                <span className="ml-auto text-ocean-600 text-xs">
-                  {timeAgo(surf.data.last_updated)}
+              <Activity className="w-5 h-5 text-ocean-400" />
+              <h2 className="font-display font-bold text-lg">Recent Earthquakes</h2>
+              {quakes.data && quakes.data.total > 0 && (
+                <span className="bg-ocean-700/40 text-ocean-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {quakes.data.total} nearby
                 </span>
               )}
+              <span className="text-ocean-500 text-xs ml-1">M2.5+, 300km radius</span>
             </div>
-            <div className="space-y-3">
-              {surf.data.spots.map(spot => (
-                <SurfCard key={spot.buoy_id} spot={spot} />
-              ))}
-            </div>
+            {quakes.loading ? (
+              <LoadingSpinner message="Checking USGS earthquake feed..." />
+            ) : quakes.error ? (
+              <ErrorMessage message={quakes.error} onRetry={quakes.refresh} />
+            ) : quakes.data?.earthquakes && quakes.data.earthquakes.length > 0 ? (
+              <div className="space-y-3">
+                {quakes.data.earthquakes.map(quake => (
+                  <EarthquakeCard key={quake.id} quake={quake} />
+                ))}
+              </div>
+            ) : (
+              <div className="card border-ocean-700/20">
+                <p className="text-ocean-400 text-sm text-center py-2">No earthquakes above M2.5 near Hawaii recently.</p>
+              </div>
+            )}
           </section>
-        )}
+
+          {volcanic.data?.alerts && volcanic.data.alerts.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Flame className="w-5 h-5 text-orange-400" />
+                <h2 className="font-display font-bold text-lg">Volcanic Activity</h2>
+                <span className="text-ocean-500 text-xs ml-1">Hawaii volcanoes</span>
+              </div>
+              <div className="space-y-3">
+                {volcanic.data.alerts.map(alert => (
+                  <VolcanicCard key={alert.id} alert={alert} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {surf.data?.spots && surf.data.spots.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Waves className="w-5 h-5 text-ocean-400" />
+                <h2 className="font-display font-bold text-lg">Surf Report</h2>
+                <span className="text-ocean-500 text-xs ml-1">NOAA buoy data</span>
+                {timeAgo(surf.data.last_updated) && (
+                  <span className="ml-auto text-ocean-600 text-xs">{timeAgo(surf.data.last_updated)}</span>
+                )}
+              </div>
+              <div className="space-y-3">
+                {surf.data.spots.map(spot => (
+                  <SurfCard key={spot.buoy_id} spot={spot} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>}
 
         {/* ============================================= */}
-        {/* EMERGENCY PREP CHECKLIST                      */}
+        {/* PREP TAB                                      */}
         {/* ============================================= */}
-        <ChecklistSection />
+        {activeTab === 'prep' && <ChecklistSection />}
 
-        {/* ============================================= */}
-        {/* FOOTER                                        */}
-        {/* ============================================= */}
-        <footer className="text-center text-ocean-500 text-xs py-8 border-t border-ocean-800">
-          <p>
-            Maui Alert Hub v0.2.0
-          </p>
-          <p className="mt-1">
-            Data from NWS, USGS, NOAA, EPA AirNow, and Maui County.
-            Not an official government source.
-          </p>
+        {/* Footer — shown on all tabs */}
+        <footer className="text-center text-ocean-500 text-xs py-4 border-t border-ocean-800">
+          <p>Maui Alert Hub v0.2.0</p>
+          <p className="mt-1">Data from NWS, USGS, NOAA, EPA AirNow, and Maui County. Not an official government source.</p>
         </footer>
       </main>
     </div>
