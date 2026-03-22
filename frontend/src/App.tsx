@@ -13,6 +13,7 @@ import AlertCard from './components/AlertCard'
 import ForecastBar from './components/ForecastBar'
 import EarthquakeCard from './components/EarthquakeCard'
 import ChecklistSection from './components/ChecklistSection'
+import InstallBanner from './components/InstallBanner'
 import { LoadingSpinner, ErrorMessage, EmptyState } from './components/StatusStates'
 import { useApi } from './hooks/useApi'
 import { getRoadClosures, getWeather, getEarthquakes } from './utils/api'
@@ -73,6 +74,7 @@ export default function App() {
       </div>
 
       <Header onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+      <InstallBanner />
 
       {!isOnline && (
         <div className="bg-amber-500/10 backdrop-blur-sm border-b border-amber-500/20 px-4 py-2 text-center">
