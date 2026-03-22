@@ -11,6 +11,7 @@ import { useState } from 'react'
 import { Waves, ChevronDown, ChevronUp } from 'lucide-react'
 import type { TsunamiAlert } from '../utils/types'
 import { timeAgo } from '../utils/time'
+import ShareButton from './ShareButton'
 
 interface TsunamiCardProps {
   alert: TsunamiAlert
@@ -52,6 +53,7 @@ export default function TsunamiCard({ alert }: TsunamiCardProps) {
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>
             {cfg.badgeText}
           </span>
+          <ShareButton title={`${alert.event} - Maui Alert`} text={alert.headline} />
           {expanded
             ? <ChevronUp className="w-4 h-4 text-ocean-500" />
             : <ChevronDown className="w-4 h-4 text-ocean-500" />

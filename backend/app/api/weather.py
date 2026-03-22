@@ -20,7 +20,7 @@ from app.scrapers.nws_client import (
     fetch_forecast,
     fetch_forecast_for_city,
 )
-from app.services.push_service import check_and_notify_new_alerts
+from app.services.push_service import check_and_notify_new_alerts, get_alert_history
 
 logger = logging.getLogger("maui_alert_hub.api.weather")
 
@@ -72,6 +72,15 @@ async def get_weather_alerts():
         "total": len(alerts),
         "last_updated": datetime.now().isoformat(),
     }
+
+
+@router.get("/history")
+async def get_weather_history(
+    days: int = Query(default=7, ge=1, le=30, description="Number of days to look back"),
+):
+    """Return NWS alert history for the last N days, newest first."""
+    history = await get_alert_history(days)
+    return {"alerts": history, "total": len(history), "days": days}
 
 
 @router.get("/forecast")

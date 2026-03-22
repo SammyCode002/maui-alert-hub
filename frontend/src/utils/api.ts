@@ -10,6 +10,7 @@ import type {
   RoadResponse, WeatherResponse, EarthquakeResponse,
   VolcanicResponse, SurfResponse, CommunityAlertsResponse,
   TsunamiResponse, AQIResponse, ForecastCityKey,
+  AlertHistoryResponse,
 } from './types'
 
 // In dev, Vite proxies /api to localhost:8000 (see vite.config.ts)
@@ -106,7 +107,10 @@ export async function getVapidPublicKey(): Promise<string | null> {
   }
 }
 
-export async function subscribeToNotifications(subscription: PushSubscription): Promise<void> {
+export async function subscribeToNotifications(
+  subscription: PushSubscription,
+  savedRoutes: string[] = [],
+): Promise<void> {
   const sub = subscription.toJSON()
   await fetch(`${API_BASE}/api/notifications/subscribe`, {
     method: 'POST',
@@ -114,8 +118,29 @@ export async function subscribeToNotifications(subscription: PushSubscription): 
     body: JSON.stringify({
       endpoint: sub.endpoint,
       keys: { p256dh: sub.keys?.p256dh, auth: sub.keys?.auth },
+      saved_routes: savedRoutes,
     }),
   })
+}
+
+export async function syncSavedRoutes(savedRoutes: string[]): Promise<void> {
+  try {
+    if (!('serviceWorker' in navigator)) return
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+    if (!subscription) return
+    await fetch(`${API_BASE}/api/notifications/saved-routes`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: subscription.endpoint, saved_routes: savedRoutes }),
+    })
+  } catch {
+    // Silent fail — not critical
+  }
+}
+
+export async function getAlertHistory(days = 7): Promise<AlertHistoryResponse> {
+  return fetchAPI<AlertHistoryResponse>(`/weather/history?days=${days}`)
 }
 
 export async function unsubscribeFromNotifications(endpoint: string): Promise<void> {

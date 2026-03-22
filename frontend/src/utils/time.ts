@@ -6,6 +6,16 @@
  * Returns a human-readable relative time string from an ISO datetime string.
  * e.g. "Just now", "3m ago", "2h ago", "1d ago"
  */
+/**
+ * Returns true when data is older than thresholdMinutes (default 15).
+ * Used to show stale data warnings.
+ */
+export function isStale(isoString: string | null | undefined, thresholdMinutes = 15): boolean {
+  if (!isoString) return false
+  const ms = Date.now() - new Date(isoString).getTime()
+  return ms > thresholdMinutes * 60 * 1000
+}
+
 export function timeAgo(isoString: string | null | undefined): string | null {
   if (!isoString) return null
   const date = new Date(isoString)

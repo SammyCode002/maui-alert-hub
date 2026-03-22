@@ -182,6 +182,28 @@ export interface AQIResponse {
 }
 
 // ============================================================
+// Alert History Types
+// ============================================================
+
+export interface AlertHistoryEntry {
+  id: number
+  nws_id: string | null
+  headline: string
+  severity: AlertSeverity
+  alert_type: AlertType
+  areas: string | null
+  onset: string | null
+  expires: string | null
+  first_seen_at: string
+}
+
+export interface AlertHistoryResponse {
+  alerts: AlertHistoryEntry[]
+  total: number
+  days: number
+}
+
+// ============================================================
 // Forecast City
 // ============================================================
 

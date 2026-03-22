@@ -7,6 +7,7 @@
 
 import { MapPin, Clock, Star } from 'lucide-react'
 import type { RoadClosure, RoadStatus } from '../utils/types'
+import ShareButton from './ShareButton'
 
 interface RoadCardProps {
   road: RoadClosure
@@ -43,6 +44,10 @@ export default function RoadCard({ road, isSaved = false, onToggleSave }: RoadCa
         </h3>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className={config.badge}>{config.label}</span>
+          <ShareButton
+            title={`Road Update: ${road.road_name}`}
+            text={`${road.road_name} is ${road.status}. ${road.description}`}
+          />
           {onToggleSave && road.id && (
             <button
               onClick={e => { e.stopPropagation(); onToggleSave(road.id!) }}

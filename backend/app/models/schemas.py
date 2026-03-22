@@ -230,6 +230,7 @@ class PushSubscriptionCreate(BaseModel):
     """Incoming subscribe request body from the browser."""
     endpoint: str
     keys: PushSubscriptionKeys
+    saved_routes: list[str] = Field(default_factory=list)
 
 
 # ============================================================

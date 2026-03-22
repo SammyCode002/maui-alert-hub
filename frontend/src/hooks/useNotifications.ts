@@ -50,7 +50,7 @@ export function useNotifications() {
     })
   }, [])
 
-  const subscribe = async () => {
+  const subscribe = async (savedRoutes: string[] = []) => {
     if (!supported || !vapidKey) return
     setLoading(true)
     try {
@@ -63,7 +63,7 @@ export function useNotifications() {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       })
 
-      await subscribeToNotifications(subscription)
+      await subscribeToNotifications(subscription, savedRoutes)
       setSubscribed(true)
       localStorage.setItem(SUBSCRIBED_KEY, 'true')
     } catch (err) {

@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
-import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone, Wind, TriangleAlert, Map } from 'lucide-react'
+import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone, Wind, TriangleAlert, Map, History, ChevronDown, ChevronUp } from 'lucide-react'
 import Header from './components/Header'
 import BottomNav from './components/BottomNav'
 import type { NavTab } from './components/BottomNav'
@@ -28,15 +28,66 @@ import { useSavedRoutes } from './hooks/useSavedRoutes'
 import {
   getRoadClosures, getWeather, getEarthquakes, getVolcanic,
   getSurf, getCommunityAlerts, getTsunami, getAQI,
+  getAlertHistory, syncSavedRoutes,
 } from './utils/api'
-import { timeAgo } from './utils/time'
-import type { CommunityAlert, ForecastCityKey } from './utils/types'
+import { timeAgo, isStale } from './utils/time'
+import type { CommunityAlert, ForecastCityKey, AlertHistoryEntry } from './utils/types'
 import { FORECAST_CITIES } from './utils/types'
+
+// ============================================================
+// Alert History Section (collapsed by default)
+// ============================================================
+function AlertHistorySection({ data }: { data: AlertHistoryEntry[] }) {
+  const [expanded, setExpanded] = useState(false)
+  if (data.length === 0) return null
+  const severityColor: Record<string, string> = {
+    extreme: 'text-red-400', severe: 'text-orange-400',
+    moderate: 'text-amber-400', minor: 'text-lime-400', unknown: 'text-ocean-400',
+  }
+  return (
+    <section>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="flex items-center gap-2 mb-3 w-full text-left"
+      >
+        <History className="w-4 h-4 text-ocean-500" />
+        <h2 className="font-display font-bold text-base text-ocean-300">Alert History (7 days)</h2>
+        <span className="text-ocean-600 text-xs">{data.length} past alerts</span>
+        <span className="ml-auto text-ocean-600">
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </span>
+      </button>
+      {expanded && (
+        <div className="space-y-2">
+          {data.map(entry => (
+            <div key={entry.id} className="card opacity-70 border-l-2 border-ocean-700 py-2 px-3">
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold uppercase ${severityColor[entry.severity] ?? severityColor.unknown}`}>
+                  {entry.alert_type}
+                </span>
+                <p className="text-ocean-200 text-xs flex-1 leading-snug">{entry.headline}</p>
+              </div>
+              <p className="text-ocean-600 text-xs mt-1">{timeAgo(entry.first_seen_at)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
 
 export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
-  const [activeTab, setActiveTab] = useState<NavTab>('alerts')
+  const [activeTab, setActiveTab] = useState<NavTab>(() => {
+    const saved = localStorage.getItem('active-tab') as NavTab | null
+    return saved ?? 'alerts'
+  })
+
+  const handleTabChange = (tab: NavTab) => {
+    setActiveTab(tab)
+    localStorage.setItem('active-tab', tab)
+  }
   const [showMap, setShowMap] = useState(false)
   const [showSirens, setShowSirens] = useState(false)
   const [forecastCity, setForecastCity] = useState<ForecastCityKey>('kahului')
@@ -51,8 +102,12 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  // Saved routes
-  const { isSaved, toggle: toggleSaved } = useSavedRoutes()
+  // Saved routes — sync with backend whenever they change
+  const { saved: savedRoutes, isSaved, toggle: toggleSaved } = useSavedRoutes()
+
+  useEffect(() => {
+    syncSavedRoutes([...savedRoutes])
+  }, [savedRoutes])
 
   // Data fetching
   const roads = useApi(getRoadClosures)
@@ -64,6 +119,7 @@ export default function App() {
   const community = useApi(getCommunityAlerts)
   const tsunami = useApi(getTsunami)
   const aqi = useApi(getAQI)
+  const alertHistory = useApi(getAlertHistory)
 
   // Refresh all data
   const handleRefresh = useCallback(async () => {
@@ -71,10 +127,10 @@ export default function App() {
     await Promise.all([
       roads.refresh(), weather.refresh(), quakes.refresh(),
       volcanic.refresh(), surf.refresh(), community.refresh(),
-      tsunami.refresh(), aqi.refresh(),
+      tsunami.refresh(), aqi.refresh(), alertHistory.refresh(),
     ])
     setIsRefreshing(false)
-  }, [roads, weather, quakes, volcanic, surf, community, tsunami, aqi])
+  }, [roads, weather, quakes, volcanic, surf, community, tsunami, aqi, alertHistory])
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
@@ -87,11 +143,12 @@ export default function App() {
       community.refresh()
       tsunami.refresh()
       aqi.refresh()
+      alertHistory.refresh()
     }, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [
     roads.refresh, weather.refresh, quakes.refresh, volcanic.refresh,
-    surf.refresh, community.refresh, tsunami.refresh, aqi.refresh,
+    surf.refresh, community.refresh, tsunami.refresh, aqi.refresh, alertHistory.refresh,
   ])
 
   // Track online/offline status
@@ -136,7 +193,7 @@ export default function App() {
       )}
 
       {/* Bottom nav */}
-      <BottomNav active={activeTab} onChange={setActiveTab} alertBadge={totalAlertBadge} />
+      <BottomNav active={activeTab} onChange={handleTabChange} alertBadge={totalAlertBadge} />
 
       {/* Extra bottom padding so content doesn't hide behind nav bar */}
       <main className="max-w-4xl mx-auto px-4 py-6 pb-24 space-y-8">
@@ -202,8 +259,11 @@ export default function App() {
                   {alertCount} active
                 </span>
               )}
-              {timeAgo(weather.data?.last_updated) && (
-                <span className="ml-auto text-ocean-600 text-xs">{timeAgo(weather.data?.last_updated)}</span>
+              {weather.data?.last_updated && (
+                <span className={`ml-auto text-xs flex items-center gap-1 ${isStale(weather.data.last_updated) ? 'text-amber-400' : 'text-ocean-600'}`}>
+                  {isStale(weather.data.last_updated) && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />}
+                  {timeAgo(weather.data.last_updated)}
+                </span>
               )}
             </div>
             {weather.loading ? (
@@ -222,6 +282,8 @@ export default function App() {
               </div>
             )}
           </section>
+
+          <AlertHistorySection data={alertHistory.data?.alerts ?? []} />
         </>}
 
         {/* ============================================= */}
@@ -237,8 +299,11 @@ export default function App() {
                   {roads.data.total} reported
                 </span>
               )}
-              {timeAgo(roads.data?.last_scraped) && (
-                <span className="ml-auto text-ocean-600 text-xs">{timeAgo(roads.data?.last_scraped)}</span>
+              {roads.data?.last_scraped && (
+                <span className={`ml-auto text-xs flex items-center gap-1 ${isStale(roads.data.last_scraped) ? 'text-amber-400' : 'text-ocean-600'}`}>
+                  {isStale(roads.data.last_scraped) && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />}
+                  {timeAgo(roads.data.last_scraped)}
+                </span>
               )}
             </div>
             {roads.loading ? (

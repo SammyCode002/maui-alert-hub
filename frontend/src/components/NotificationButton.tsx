@@ -13,7 +13,7 @@ export default function NotificationButton() {
 
   return (
     <button
-      onClick={subscribed ? unsubscribe : subscribe}
+      onClick={subscribed ? unsubscribe : () => subscribe()}
       disabled={loading}
       title={subscribed ? 'Disable alerts' : 'Enable push alerts'}
       className="p-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] hover:bg-white/[0.10] transition-colors disabled:opacity-50"

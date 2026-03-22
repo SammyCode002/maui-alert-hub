@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { AlertTriangle, Clock, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
 import type { WeatherAlert, AlertSeverity } from '../utils/types'
+import ShareButton from './ShareButton'
 
 interface AlertCardProps {
   alert: WeatherAlert
@@ -73,12 +74,15 @@ export default function AlertCard({ alert }: AlertCardProps) {
           </p>
         </div>
 
-        {/* Expand toggle */}
-        <div className="flex-shrink-0 text-ocean-500 mt-0.5">
-          {expanded
-            ? <ChevronUp className="w-4 h-4" />
-            : <ChevronDown className="w-4 h-4" />
-          }
+        {/* Share + expand */}
+        <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+          <ShareButton title={`Maui ${alert.alert_type} Alert`} text={alert.headline} />
+          <span className="text-ocean-500">
+            {expanded
+              ? <ChevronUp className="w-4 h-4" />
+              : <ChevronDown className="w-4 h-4" />
+            }
+          </span>
         </div>
       </div>
 

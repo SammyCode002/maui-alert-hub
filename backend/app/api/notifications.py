@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.schemas import PushSubscriptionCreate
 from app.services.config import settings
-from app.services.push_service import save_subscription, delete_subscription
+from app.services.push_service import save_subscription, delete_subscription, update_subscription_routes
 
 logger = logging.getLogger("maui_alert_hub.api.notifications")
 router = APIRouter()
@@ -41,8 +41,22 @@ async def subscribe(body: PushSubscriptionCreate):
         endpoint=body.endpoint,
         p256dh=body.keys.p256dh,
         auth=body.keys.auth,
+        saved_routes=body.saved_routes,
     )
     return {"status": "subscribed"}
+
+
+@router.patch("/saved-routes")
+async def patch_saved_routes(body: dict):
+    """Update saved road IDs for an existing push subscription."""
+    endpoint = body.get("endpoint")
+    saved_routes = body.get("saved_routes", [])
+    if not endpoint:
+        raise HTTPException(status_code=400, detail="endpoint required")
+    if not isinstance(saved_routes, list):
+        raise HTTPException(status_code=400, detail="saved_routes must be a list")
+    await update_subscription_routes(endpoint, saved_routes)
+    return {"status": "updated", "count": len(saved_routes)}
 
 
 @router.delete("/unsubscribe")
