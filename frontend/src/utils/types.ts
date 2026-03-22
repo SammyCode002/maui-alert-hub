@@ -185,13 +185,30 @@ export interface AQIResponse {
 // Forecast City
 // ============================================================
 
-export type ForecastCityKey = 'kahului' | 'lahaina' | 'kihei' | 'hana' | 'paia' | 'wailea'
+export type ForecastCityKey =
+  | 'kahului' | 'wailuku'
+  | 'makawao' | 'pukalani'
+  | 'paia' | 'haiku'
+  | 'lahaina' | 'kapalua'
+  | 'kihei' | 'wailea'
+  | 'hana'
 
 export const FORECAST_CITIES: Record<ForecastCityKey, string> = {
+  // Central
   kahului: 'Kahului',
-  lahaina: 'Lahaina',
-  kihei: 'Kihei',
-  hana: 'Hana',
+  wailuku: 'Wailuku',
+  // Upcountry
+  makawao: 'Makawao',
+  pukalani: 'Pukalani',
+  // North Shore
   paia: 'Paia',
+  haiku: 'Haiku',
+  // West Maui
+  lahaina: 'Lahaina',
+  kapalua: 'Kapalua',
+  // South Maui
+  kihei: 'Kihei',
   wailea: 'Wailea',
+  // East Maui
+  hana: 'Hana',
 }

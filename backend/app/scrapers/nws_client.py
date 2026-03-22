@@ -46,12 +46,23 @@ MAUI_COUNTY_ZONES = ["HIZ023", "HIZ024", "HIZ025", "HIZ026"]
 # Maui cities for multi-city forecast
 # lat/lon used to look up NWS grid points dynamically
 MAUI_CITIES: dict[str, dict] = {
-    "kahului": {"lat": 20.8893, "lon": -156.4729, "label": "Kahului"},
-    "lahaina": {"lat": 20.8783, "lon": -156.6825, "label": "Lahaina"},
-    "kihei":   {"lat": 20.7644, "lon": -156.4450, "label": "Kihei"},
-    "hana":    {"lat": 20.7579, "lon": -155.9892, "label": "Hana"},
-    "paia":    {"lat": 20.9117, "lon": -156.3692, "label": "Paia"},
-    "wailea":  {"lat": 20.6803, "lon": -156.4415, "label": "Wailea"},
+    # Central Maui
+    "kahului":  {"lat": 20.8893, "lon": -156.4729, "label": "Kahului"},
+    "wailuku":  {"lat": 20.8900, "lon": -156.5027, "label": "Wailuku"},
+    # Upcountry
+    "makawao":  {"lat": 20.8547, "lon": -156.3014, "label": "Makawao"},
+    "pukalani": {"lat": 20.8292, "lon": -156.3367, "label": "Pukalani"},
+    # North Shore
+    "paia":     {"lat": 20.9117, "lon": -156.3692, "label": "Paia"},
+    "haiku":    {"lat": 20.9183, "lon": -156.3097, "label": "Haiku"},
+    # West Maui
+    "lahaina":  {"lat": 20.8783, "lon": -156.6825, "label": "Lahaina"},
+    "kapalua":  {"lat": 21.0050, "lon": -156.6671, "label": "Kapalua"},
+    # South Maui
+    "kihei":    {"lat": 20.7644, "lon": -156.4450, "label": "Kihei"},
+    "wailea":   {"lat": 20.6803, "lon": -156.4415, "label": "Wailea"},
+    # East Maui
+    "hana":     {"lat": 20.7579, "lon": -155.9892, "label": "Hana"},
 }
 
 # Pre-seed Kahului grid so startup doesn't need an extra API call
