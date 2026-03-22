@@ -1,0 +1,24 @@
+"""
+Health check endpoint.
+
+WHY have a health check?
+When you deploy this to a server, the hosting platform (Railway, Render, etc.)
+pings this endpoint to make sure your app is alive. If it stops responding,
+they restart it automatically. Simple but essential.
+"""
+
+from datetime import datetime
+
+from fastapi import APIRouter
+
+router = APIRouter()
+
+
+@router.get("/health")
+async def health_check():
+    """Returns the current status of the API."""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "0.1.0",
+    }
