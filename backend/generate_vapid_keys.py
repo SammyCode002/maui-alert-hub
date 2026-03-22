@@ -15,13 +15,24 @@ Usage:
     py generate_vapid_keys.py
 """
 
+import base64
 from py_vapid import Vapid
+from cryptography.hazmat.primitives.serialization import (
+    Encoding, PrivateFormat, PublicFormat, NoEncryption
+)
 
 vapid = Vapid()
 vapid.generate_keys()
 
-private_key = vapid.private_key_urlsafe
-public_key = vapid.public_key_urlsafe
+priv_der = vapid._private_key.private_bytes(
+    encoding=Encoding.DER,
+    format=PrivateFormat.PKCS8,
+    encryption_algorithm=NoEncryption(),
+)
+private_key = base64.urlsafe_b64encode(priv_der).decode().rstrip("=")
+
+pub_raw = vapid._public_key.public_bytes(Encoding.X962, PublicFormat.UncompressedPoint)
+public_key = base64.urlsafe_b64encode(pub_raw).decode().rstrip("=")
 
 print("=" * 60)
 print("VAPID Keys Generated — add these to your env vars")
