@@ -6,7 +6,7 @@
  * to add auth headers later, you update ONE file instead of every component.
  */
 
-import type { RoadResponse, WeatherResponse } from './types'
+import type { RoadResponse, WeatherResponse, EarthquakeResponse } from './types'
 
 // In dev, Vite proxies /api to localhost:8000 (see vite.config.ts)
 // In prod, this would be your actual API URL
@@ -63,4 +63,8 @@ export async function getWeatherAlerts() {
 
 export async function getWeatherForecast() {
   return fetchAPI('/weather/forecast')
+}
+
+export async function getEarthquakes(): Promise<EarthquakeResponse> {
+  return fetchAPI<EarthquakeResponse>('/earthquakes/')
 }

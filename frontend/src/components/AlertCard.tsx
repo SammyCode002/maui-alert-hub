@@ -5,7 +5,8 @@
  *   Extreme = red pulse, Severe = orange, Moderate = amber, Minor = green
  */
 
-import { AlertTriangle, Clock, MapPin } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Clock, MapPin, ChevronDown, ChevronUp } from 'lucide-react'
 import type { WeatherAlert, AlertSeverity } from '../utils/types'
 
 interface AlertCardProps {
@@ -21,6 +22,7 @@ const severityConfig: Record<AlertSeverity, { badge: string; icon: string }> = {
 }
 
 export default function AlertCard({ alert }: AlertCardProps) {
+  const [expanded, setExpanded] = useState(false)
   const config = severityConfig[alert.severity] || severityConfig.unknown
 
   // Format expiry time
@@ -35,7 +37,9 @@ export default function AlertCard({ alert }: AlertCardProps) {
     : null
 
   return (
-    <div className="card border-l-4 border-l-alert-moderate hover:border-ocean-600/50 transition-colors"
+    <div
+      className="card border-l-4 border-l-alert-moderate cursor-pointer hover:border-ocean-600/50 transition-colors"
+      onClick={() => setExpanded(e => !e)}
       style={{
         borderLeftColor: alert.severity === 'extreme' ? '#dc2626'
           : alert.severity === 'severe' ? '#ea580c'
@@ -56,10 +60,18 @@ export default function AlertCard({ alert }: AlertCardProps) {
             </span>
           </div>
 
-          {/* Description (truncated) */}
-          <p className="text-ocean-300 text-sm leading-relaxed line-clamp-3">
+          {/* Description */}
+          <p className={`text-ocean-300 text-sm leading-relaxed ${expanded ? '' : 'line-clamp-3'}`}>
             {alert.description}
           </p>
+        </div>
+
+        {/* Expand toggle */}
+        <div className="flex-shrink-0 text-ocean-500 mt-0.5">
+          {expanded
+            ? <ChevronUp className="w-4 h-4" />
+            : <ChevronDown className="w-4 h-4" />
+          }
         </div>
       </div>
 

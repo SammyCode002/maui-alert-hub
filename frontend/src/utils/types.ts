@@ -62,3 +62,22 @@ export interface WeatherResponse {
   location: string
   last_updated: string | null
 }
+
+// ============================================================
+// Earthquake Types
+// ============================================================
+
+export interface Earthquake {
+  id: string
+  magnitude: number
+  place: string
+  time: string
+  depth_km: number
+  url: string
+}
+
+export interface EarthquakeResponse {
+  earthquakes: Earthquake[]
+  total: number
+  last_updated: string | null
+}

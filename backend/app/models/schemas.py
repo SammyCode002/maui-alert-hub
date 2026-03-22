@@ -128,3 +128,36 @@ class WeatherResponse(BaseModel):
     forecasts: list[WeatherForecast]
     location: str = "Maui, Hawaii"
     last_updated: Optional[datetime] = None
+
+
+# ============================================================
+# Earthquake Models
+# ============================================================
+
+class Earthquake(BaseModel):
+    """
+    A single earthquake event from the USGS Earthquake Hazards Program.
+
+    Example:
+        {
+            "id": "us7000abc1",
+            "magnitude": 3.5,
+            "place": "5km NW of Kahului, Hawaii",
+            "time": "2026-03-22T10:00:00+00:00",
+            "depth_km": 8.5,
+            "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us7000abc1"
+        }
+    """
+    id: str = Field(..., description="USGS event ID")
+    magnitude: float = Field(..., description="Richter magnitude")
+    place: str = Field(..., description="Human-readable location description")
+    time: datetime = Field(..., description="Event time (UTC)")
+    depth_km: float = Field(..., description="Depth below surface in kilometers")
+    url: str = Field(..., description="USGS event detail page URL")
+
+
+class EarthquakeResponse(BaseModel):
+    """API response wrapper for earthquake data."""
+    earthquakes: list[Earthquake]
+    total: int
+    last_updated: Optional[datetime] = None

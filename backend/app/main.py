@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.roads import router as roads_router
 from app.api.weather import router as weather_router
 from app.api.health import router as health_router
+from app.api.earthquakes import router as earthquakes_router
 from app.scrapers.road_scraper import scrape_road_closures
 from app.scrapers.dot_scraper import scrape_dot_closures
 from app.services.config import settings
@@ -132,6 +133,7 @@ async def debug_logging_middleware(request: Request, call_next):
 app.include_router(health_router, prefix="/api", tags=["Health"])
 app.include_router(roads_router, prefix="/api/roads", tags=["Roads"])
 app.include_router(weather_router, prefix="/api/weather", tags=["Weather"])
+app.include_router(earthquakes_router, prefix="/api/earthquakes", tags=["Earthquakes"])
 
 
 # ============================================================

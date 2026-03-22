@@ -20,6 +20,7 @@ from app.scrapers.dot_scraper import (
     _dot_determine_status,
     _dot_extract_location,
 )
+from app.scrapers.usgs_client import _parse_earthquake_feature
 
 
 class TestIsValidClosure:
@@ -234,4 +235,86 @@ class TestDotExtractLocation:
         result = _dot_extract_location(
             "Lane closure on Crater Road for emergency repair work"
         )
+
         assert result is None
+
+
+# ============================================================
+# USGS Earthquake Parser Tests
+# ============================================================
+
+class TestParseEarthquakeFeature:
+    """Tests for _parse_earthquake_feature — parses USGS GeoJSON into Earthquake models."""
+
+    def _make_feature(
+        self,
+        mag=3.5,
+        place="5km NW of Kahului, Hawaii",
+        time_ms=1710000000000,
+        depth=8.5,
+        event_id="us7000test",
+        url="https://earthquake.usgs.gov/earthquakes/eventpage/us7000test",
+    ) -> dict:
+        return {
+            "id": event_id,
+            "properties": {
+                "mag": mag,
+                "place": place,
+                "time": time_ms,
+                "url": url,
+            },
+            "geometry": {
+                "coordinates": [-156.47, 20.89, depth],
+            },
+        }
+
+    def test_parses_magnitude(self):
+        eq = _parse_earthquake_feature(self._make_feature(mag=3.5))
+        assert eq is not None
+        assert eq.magnitude == 3.5
+
+    def test_rounds_magnitude_to_one_decimal(self):
+        eq = _parse_earthquake_feature(self._make_feature(mag=3.47))
+        assert eq is not None
+        assert eq.magnitude == 3.5
+
+    def test_parses_place(self):
+        eq = _parse_earthquake_feature(self._make_feature(place="5km NW of Kahului, Hawaii"))
+        assert eq is not None
+        assert eq.place == "5km NW of Kahului, Hawaii"
+
+    def test_parses_depth_from_geometry(self):
+        eq = _parse_earthquake_feature(self._make_feature(depth=12.3))
+        assert eq is not None
+        assert eq.depth_km == 12.3
+
+    def test_parses_id(self):
+        eq = _parse_earthquake_feature(self._make_feature(event_id="us7000abc1"))
+        assert eq is not None
+        assert eq.id == "us7000abc1"
+
+    def test_parses_url(self):
+        url = "https://earthquake.usgs.gov/earthquakes/eventpage/us7000abc1"
+        eq = _parse_earthquake_feature(self._make_feature(url=url))
+        assert eq is not None
+        assert eq.url == url
+
+    def test_returns_none_when_mag_missing(self):
+        feature = self._make_feature()
+        feature["properties"].pop("mag")
+        assert _parse_earthquake_feature(feature) is None
+
+    def test_returns_none_when_time_missing(self):
+        feature = self._make_feature()
+        feature["properties"].pop("time")
+        assert _parse_earthquake_feature(feature) is None
+
+    def test_returns_none_on_empty_feature(self):
+        assert _parse_earthquake_feature({}) is None
+
+    def test_handles_missing_geometry_coordinates(self):
+        feature = self._make_feature()
+        feature["geometry"] = {}
+        eq = _parse_earthquake_feature(feature)
+        assert eq is not None
+        assert eq.depth_km == 0.0

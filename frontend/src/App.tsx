@@ -6,14 +6,17 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
-import { MapPin, CloudLightning, Route } from 'lucide-react'
+import { MapPin, CloudLightning, Route, Activity } from 'lucide-react'
 import Header from './components/Header'
 import RoadCard from './components/RoadCard'
 import AlertCard from './components/AlertCard'
 import ForecastBar from './components/ForecastBar'
+import EarthquakeCard from './components/EarthquakeCard'
+import ChecklistSection from './components/ChecklistSection'
 import { LoadingSpinner, ErrorMessage, EmptyState } from './components/StatusStates'
 import { useApi } from './hooks/useApi'
-import { getRoadClosures, getWeather } from './utils/api'
+import { getRoadClosures, getWeather, getEarthquakes } from './utils/api'
+import { timeAgo } from './utils/time'
 
 export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -25,21 +28,25 @@ export default function App() {
   // Fetch weather (alerts + forecast)
   const weather = useApi(getWeather)
 
+  // Fetch earthquakes
+  const quakes = useApi(getEarthquakes)
+
   // Refresh all data
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
-    await Promise.all([roads.refresh(), weather.refresh()])
+    await Promise.all([roads.refresh(), weather.refresh(), quakes.refresh()])
     setIsRefreshing(false)
-  }, [roads, weather])
+  }, [roads, weather, quakes])
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       roads.refresh()
       weather.refresh()
+      quakes.refresh()
     }, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [roads.refresh, weather.refresh])
+  }, [roads.refresh, weather.refresh, quakes.refresh])
 
   // Track online/offline status
   useEffect(() => {
@@ -82,6 +89,11 @@ export default function App() {
                 {alertCount} active
               </span>
             )}
+            {timeAgo(weather.data?.last_updated) && (
+              <span className="ml-auto text-ocean-600 text-xs">
+                {timeAgo(weather.data?.last_updated)}
+              </span>
+            )}
           </div>
 
           {weather.loading ? (
@@ -118,6 +130,40 @@ export default function App() {
         )}
 
         {/* ============================================= */}
+        {/* EARTHQUAKE SECTION                            */}
+        {/* ============================================= */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-5 h-5 text-ocean-400" />
+            <h2 className="font-display font-bold text-lg">Recent Earthquakes</h2>
+            {quakes.data && quakes.data.total > 0 && (
+              <span className="bg-ocean-700/40 text-ocean-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                {quakes.data.total} nearby
+              </span>
+            )}
+            <span className="text-ocean-500 text-xs ml-1">M2.5+, 300km radius</span>
+          </div>
+
+          {quakes.loading ? (
+            <LoadingSpinner message="Checking USGS earthquake feed..." />
+          ) : quakes.error ? (
+            <ErrorMessage message={quakes.error} onRetry={quakes.refresh} />
+          ) : quakes.data?.earthquakes && quakes.data.earthquakes.length > 0 ? (
+            <div className="space-y-3">
+              {quakes.data.earthquakes.map(quake => (
+                <EarthquakeCard key={quake.id} quake={quake} />
+              ))}
+            </div>
+          ) : (
+            <div className="card bg-ocean-800/20 border-ocean-700/20">
+              <p className="text-ocean-400 text-sm text-center py-2">
+                No earthquakes above M2.5 near Hawaii recently.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ============================================= */}
         {/* ROAD CLOSURES SECTION                         */}
         {/* ============================================= */}
         <section>
@@ -127,6 +173,11 @@ export default function App() {
             {roads.data && roads.data.total > 0 && (
               <span className="bg-lava-500/20 text-lava-400 text-xs font-bold px-2 py-0.5 rounded-full">
                 {roads.data.total} reported
+              </span>
+            )}
+            {timeAgo(roads.data?.last_scraped) && (
+              <span className="ml-auto text-ocean-600 text-xs">
+                {timeAgo(roads.data?.last_scraped)}
               </span>
             )}
           </div>
@@ -145,6 +196,11 @@ export default function App() {
             <EmptyState message="No road closures reported. Drive safe!" />
           )}
         </section>
+
+        {/* ============================================= */}
+        {/* EMERGENCY PREP CHECKLIST                      */}
+        {/* ============================================= */}
+        <ChecklistSection />
 
         {/* ============================================= */}
         {/* FOOTER                                        */}
