@@ -22,6 +22,8 @@ from app.api.health import router as health_router
 from app.api.earthquakes import router as earthquakes_router
 from app.api.volcanic import router as volcanic_router
 from app.api.surf import router as surf_router
+from app.api.tsunami import router as tsunami_router
+from app.api.aqi import router as aqi_router
 from app.api.notifications import router as notifications_router
 from app.api.community import router as community_router
 from app.api.admin import router as admin_router
@@ -29,6 +31,7 @@ from app.scrapers.road_scraper import scrape_road_closures
 from app.scrapers.dot_scraper import scrape_dot_closures
 from app.scrapers.usgs_volcano_client import fetch_volcanic_alerts
 from app.scrapers.noaa_buoy_client import fetch_surf_conditions
+from app.scrapers.aqi_client import fetch_aqi
 from app.database import init_db
 from app.services.config import settings
 
@@ -70,6 +73,7 @@ async def lifespan(app: FastAPI):
         scrape_dot_closures(),
         fetch_volcanic_alerts(),
         fetch_surf_conditions(),
+        fetch_aqi(),
     )
 
     # Schedule periodic background scraping
@@ -89,10 +93,14 @@ async def lifespan(app: FastAPI):
         fetch_surf_conditions, "interval",
         minutes=60, id="scrape_surf",
     )
+    scheduler.add_job(
+        fetch_aqi, "interval",
+        minutes=60, id="scrape_aqi",
+    )
     scheduler.start()
     logger.info(
         f"Scheduler started | county every {settings.scrape_interval_minutes}min "
-        f"| DOT every 10min | volcanic every 30min | surf every 60min"
+        f"| DOT every 10min | volcanic every 30min | surf/aqi every 60min"
     )
 
     yield
@@ -160,6 +168,8 @@ app.include_router(weather_router, prefix="/api/weather", tags=["Weather"])
 app.include_router(earthquakes_router, prefix="/api/earthquakes", tags=["Earthquakes"])
 app.include_router(volcanic_router, prefix="/api/volcanic", tags=["Volcanic"])
 app.include_router(surf_router, prefix="/api/surf", tags=["Surf"])
+app.include_router(tsunami_router, prefix="/api/tsunami", tags=["Tsunami"])
+app.include_router(aqi_router, prefix="/api/aqi", tags=["AQI"])
 app.include_router(notifications_router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(community_router, prefix="/api/community-alerts", tags=["Community"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])

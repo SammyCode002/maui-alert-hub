@@ -43,6 +43,22 @@ MAUI_GRID_Y = 126
 MAUI_ZONE = "HIZ023"  # Maui Central Valley North
 MAUI_COUNTY_ZONES = ["HIZ023", "HIZ024", "HIZ025", "HIZ026"]
 
+# Maui cities for multi-city forecast
+# lat/lon used to look up NWS grid points dynamically
+MAUI_CITIES: dict[str, dict] = {
+    "kahului": {"lat": 20.8893, "lon": -156.4729, "label": "Kahului"},
+    "lahaina": {"lat": 20.8783, "lon": -156.6825, "label": "Lahaina"},
+    "kihei":   {"lat": 20.7644, "lon": -156.4450, "label": "Kihei"},
+    "hana":    {"lat": 20.7579, "lon": -155.9892, "label": "Hana"},
+    "paia":    {"lat": 20.9117, "lon": -156.3692, "label": "Paia"},
+    "wailea":  {"lat": 20.6803, "lon": -156.4415, "label": "Wailea"},
+}
+
+# Pre-seed Kahului grid so startup doesn't need an extra API call
+_city_grid_cache: dict[str, dict] = {
+    "kahului": {"office": "HFO", "x": 212, "y": 126},
+}
+
 
 def _get_headers() -> dict:
     """
@@ -194,3 +210,114 @@ def _map_alert_type(event: str) -> AlertType:
     elif "advisory" in event_lower:
         return AlertType.ADVISORY
     return AlertType.STATEMENT
+
+
+async def _resolve_city_grid(city_key: str) -> Optional[dict]:
+    """
+    Look up the NWS grid point for a Maui city by querying /points/{lat},{lon}.
+    Result is cached so we only query once per city per process lifetime.
+
+    4x4 Logging: inputs (city/coords), outputs (grid), timing, status
+    """
+    if city_key in _city_grid_cache:
+        return _city_grid_cache[city_key]
+
+    city = MAUI_CITIES.get(city_key)
+    if not city:
+        logger.warning(f"INPUT  | _resolve_city_grid | unknown city={city_key}")
+        return None
+
+    start_time = time.time()
+    logger.info(f"INPUT  | _resolve_city_grid | city={city_key} lat={city['lat']} lon={city['lon']}")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{NWS_BASE}/points/{city['lat']},{city['lon']}",
+                headers=_get_headers(),
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        props = data.get("properties", {})
+        grid = {
+            "office": props.get("gridId", MAUI_GRID_OFFICE),
+            "x": props.get("gridX", MAUI_GRID_X),
+            "y": props.get("gridY", MAUI_GRID_Y),
+        }
+        _city_grid_cache[city_key] = grid
+
+        duration_ms = (time.time() - start_time) * 1000
+        logger.info(
+            f"OUTPUT | _resolve_city_grid | city={city_key} "
+            f"grid={grid['office']}/{grid['x']},{grid['y']} | "
+            f"time={duration_ms:.1f}ms | OK"
+        )
+        return grid
+
+    except httpx.HTTPError as e:
+        duration_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"OUTPUT | _resolve_city_grid | city={city_key} error={e} | "
+            f"time={duration_ms:.1f}ms | ERROR"
+        )
+        return None
+
+
+async def fetch_forecast_for_city(city_key: str = "kahului") -> list[WeatherForecast]:
+    """
+    Fetch the 7-day NWS forecast for a specific Maui city.
+
+    Falls back to Kahului forecast if the city grid can't be resolved.
+
+    4x4 Logging: inputs (city), outputs (period count), timing, status
+    """
+    city_key = city_key.lower().strip()
+    if city_key not in MAUI_CITIES:
+        city_key = "kahului"
+
+    start_time = time.time()
+    logger.info(f"INPUT  | fetch_forecast_for_city | city={city_key}")
+
+    grid = await _resolve_city_grid(city_key)
+    if not grid:
+        logger.warning(f"fetch_forecast_for_city | fallback to Kahului for city={city_key}")
+        return await fetch_forecast()
+
+    forecasts: list[WeatherForecast] = []
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{NWS_BASE}/gridpoints/{grid['office']}/{grid['x']},{grid['y']}/forecast",
+                headers=_get_headers(),
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        for period in data.get("properties", {}).get("periods", []):
+            forecasts.append(WeatherForecast(
+                name=period.get("name", ""),
+                temperature=period.get("temperature", 0),
+                wind_speed=period.get("windSpeed", ""),
+                wind_direction=period.get("windDirection", ""),
+                short_forecast=period.get("shortForecast", ""),
+                detailed_forecast=period.get("detailedForecast", ""),
+                is_daytime=period.get("isDaytime", True),
+            ))
+
+        duration_ms = (time.time() - start_time) * 1000
+        logger.info(
+            f"OUTPUT | fetch_forecast_for_city | city={city_key} "
+            f"periods={len(forecasts)} | time={duration_ms:.1f}ms | OK"
+        )
+
+    except httpx.HTTPError as e:
+        duration_ms = (time.time() - start_time) * 1000
+        logger.error(
+            f"OUTPUT | fetch_forecast_for_city | city={city_key} error={e} | "
+            f"time={duration_ms:.1f}ms | ERROR"
+        )
+        return await fetch_forecast()
+
+    return forecasts

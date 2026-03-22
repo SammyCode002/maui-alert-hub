@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react'
-import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone } from 'lucide-react'
+import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone, Wind, TriangleAlert, Map } from 'lucide-react'
 import Header from './components/Header'
 import RoadCard from './components/RoadCard'
 import AlertCard from './components/AlertCard'
@@ -14,19 +14,29 @@ import ForecastBar from './components/ForecastBar'
 import EarthquakeCard from './components/EarthquakeCard'
 import VolcanicCard from './components/VolcanicCard'
 import SurfCard from './components/SurfCard'
+import TsunamiCard from './components/TsunamiCard'
+import AirQualityCard from './components/AirQualityCard'
+import MapView from './components/MapView'
 import ChecklistSection from './components/ChecklistSection'
 import InstallBanner from './components/InstallBanner'
 import AdminPage from './components/AdminPage'
 import { LoadingSpinner, ErrorMessage, EmptyState } from './components/StatusStates'
 import { useApi } from './hooks/useApi'
 import { useSavedRoutes } from './hooks/useSavedRoutes'
-import { getRoadClosures, getWeather, getEarthquakes, getVolcanic, getSurf, getCommunityAlerts } from './utils/api'
+import {
+  getRoadClosures, getWeather, getEarthquakes, getVolcanic,
+  getSurf, getCommunityAlerts, getTsunami, getAQI,
+} from './utils/api'
 import { timeAgo } from './utils/time'
-import type { CommunityAlert } from './utils/types'
+import type { CommunityAlert, ForecastCityKey } from './utils/types'
+import { FORECAST_CITIES } from './utils/types'
 
 export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [showMap, setShowMap] = useState(false)
+  const [showSirens, setShowSirens] = useState(false)
+  const [forecastCity, setForecastCity] = useState<ForecastCityKey>('kahului')
   const [page, setPage] = useState<'home' | 'admin'>(() =>
     window.location.hash === '#admin' ? 'admin' : 'home'
   )
@@ -43,11 +53,14 @@ export default function App() {
 
   // Data fetching
   const roads = useApi(getRoadClosures)
-  const weather = useApi(getWeather)
+  const weatherFetcher = useCallback(() => getWeather(forecastCity), [forecastCity])
+  const weather = useApi(weatherFetcher)
   const quakes = useApi(getEarthquakes)
   const volcanic = useApi(getVolcanic)
   const surf = useApi(getSurf)
   const community = useApi(getCommunityAlerts)
+  const tsunami = useApi(getTsunami)
+  const aqi = useApi(getAQI)
 
   // Refresh all data
   const handleRefresh = useCallback(async () => {
@@ -55,9 +68,10 @@ export default function App() {
     await Promise.all([
       roads.refresh(), weather.refresh(), quakes.refresh(),
       volcanic.refresh(), surf.refresh(), community.refresh(),
+      tsunami.refresh(), aqi.refresh(),
     ])
     setIsRefreshing(false)
-  }, [roads, weather, quakes, volcanic, surf, community])
+  }, [roads, weather, quakes, volcanic, surf, community, tsunami, aqi])
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
@@ -68,9 +82,14 @@ export default function App() {
       volcanic.refresh()
       surf.refresh()
       community.refresh()
+      tsunami.refresh()
+      aqi.refresh()
     }, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [roads.refresh, weather.refresh, quakes.refresh, volcanic.refresh, surf.refresh, community.refresh])
+  }, [
+    roads.refresh, weather.refresh, quakes.refresh, volcanic.refresh,
+    surf.refresh, community.refresh, tsunami.refresh, aqi.refresh,
+  ])
 
   // Track online/offline status
   useEffect(() => {
@@ -84,13 +103,13 @@ export default function App() {
     }
   }, [])
 
-  // Count active alerts for the badge
   const alertCount = weather.data?.alerts?.length ?? 0
+  const tsunamiCount = tsunami.data?.alerts?.length ?? 0
 
   if (page === 'admin') return <AdminPage />
 
-  // Active community alerts (non-null, already filtered by backend)
   const communityAlerts: CommunityAlert[] = community.data?.alerts ?? []
+  const roadsList = roads.data?.roads ?? []
 
   return (
     <div className="min-h-screen">
@@ -113,6 +132,26 @@ export default function App() {
       )}
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+
+        {/* ============================================= */}
+        {/* TSUNAMI ALERTS (highest priority)             */}
+        {/* ============================================= */}
+        {tsunamiCount > 0 && (
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <TriangleAlert className="w-5 h-5 text-red-400" />
+              <h2 className="font-display font-bold text-lg">Tsunami Alerts</h2>
+              <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                {tsunamiCount} ACTIVE
+              </span>
+            </div>
+            <div className="space-y-3">
+              {tsunami.data!.alerts.map((alert, idx) => (
+                <TsunamiCard key={alert.id ?? idx} alert={alert} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ============================================= */}
         {/* COMMUNITY ALERTS (admin-posted)               */}
@@ -187,16 +226,54 @@ export default function App() {
         </section>
 
         {/* ============================================= */}
-        {/* FORECAST BAR                                  */}
+        {/* FORECAST BAR with city selector               */}
         {/* ============================================= */}
-        {weather.data?.forecasts && weather.data.forecasts.length > 0 && (
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <MapPin className="w-5 h-5 text-ocean-400" />
+            <h2 className="font-display font-bold text-lg">Forecast</h2>
+          </div>
+
+          {/* City selector tabs */}
+          <div className="flex gap-1.5 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
+            {(Object.entries(FORECAST_CITIES) as [ForecastCityKey, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setForecastCity(key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                  forecastCity === key
+                    ? 'bg-ocean-500 text-white'
+                    : 'bg-white/[0.05] text-ocean-400 hover:bg-white/[0.10] border border-white/[0.07]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {weather.loading ? (
+            <LoadingSpinner message={`Checking forecast for ${FORECAST_CITIES[forecastCity]}...`} />
+          ) : weather.data?.forecasts && weather.data.forecasts.length > 0 ? (
+            <ForecastBar forecasts={weather.data.forecasts} />
+          ) : null}
+        </section>
+
+        {/* ============================================= */}
+        {/* AIR QUALITY / VOG                             */}
+        {/* ============================================= */}
+        {aqi.data && aqi.data.readings.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <MapPin className="w-5 h-5 text-ocean-400" />
-              <h2 className="font-display font-bold text-lg">Forecast</h2>
-              <span className="text-ocean-500 text-xs">Kahului, Maui</span>
+              <Wind className="w-5 h-5 text-cyan-400" />
+              <h2 className="font-display font-bold text-lg">Air Quality</h2>
+              {aqi.data.is_vog_advisory && (
+                <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-2 py-0.5 rounded-full">
+                  Vog Advisory
+                </span>
+              )}
+              <span className="text-ocean-500 text-xs ml-1">EPA AirNow</span>
             </div>
-            <ForecastBar forecasts={weather.data.forecasts} />
+            <AirQualityCard data={aqi.data} />
           </section>
         )}
 
@@ -223,9 +300,9 @@ export default function App() {
             <LoadingSpinner message="Checking road conditions..." />
           ) : roads.error ? (
             <ErrorMessage message={roads.error} onRetry={roads.refresh} />
-          ) : roads.data?.roads && roads.data.roads.length > 0 ? (
+          ) : roadsList.length > 0 ? (
             <div className="space-y-3">
-              {roads.data.roads.map((road, idx) => (
+              {roadsList.map((road, idx) => (
                 <RoadCard
                   key={road.id || idx}
                   road={road}
@@ -236,6 +313,41 @@ export default function App() {
             </div>
           ) : (
             <EmptyState message="No road closures reported. Drive safe!" />
+          )}
+        </section>
+
+        {/* ============================================= */}
+        {/* ROAD MAP                                      */}
+        {/* ============================================= */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Map className="w-5 h-5 text-ocean-400" />
+            <h2 className="font-display font-bold text-lg">Maui Map</h2>
+            <button
+              onClick={() => setShowMap(m => !m)}
+              className="ml-auto text-xs text-ocean-400 hover:text-ocean-200 transition-colors"
+            >
+              {showMap ? 'Hide map' : 'Show map'}
+            </button>
+          </div>
+
+          {showMap && (
+            <>
+              <div className="flex items-center gap-3 mb-3">
+                <button
+                  onClick={() => setShowSirens(s => !s)}
+                  className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border transition-colors ${
+                    showSirens
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      : 'bg-white/[0.05] text-ocean-500 border-white/[0.07] hover:bg-white/[0.10]'
+                  }`}
+                >
+                  📢 {showSirens ? 'Hide sirens' : 'Show tsunami sirens'}
+                </button>
+                <span className="text-ocean-600 text-xs">Siren locations are approximate</span>
+              </div>
+              <MapView roads={roadsList} showSirens={showSirens} />
+            </>
           )}
         </section>
 
@@ -324,10 +436,10 @@ export default function App() {
         {/* ============================================= */}
         <footer className="text-center text-ocean-500 text-xs py-8 border-t border-ocean-800">
           <p>
-            Maui Alert Hub v0.1.0
+            Maui Alert Hub v0.2.0
           </p>
           <p className="mt-1">
-            Data from Maui County and the National Weather Service.
+            Data from NWS, USGS, NOAA, EPA AirNow, and Maui County.
             Not an official government source.
           </p>
         </footer>

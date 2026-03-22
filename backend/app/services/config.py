@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     # Admin panel — set a strong secret in Render env vars as ADMIN_TOKEN
     admin_token: str = "change-me-in-production"
 
+    # EPA AirNow API — get a free key at https://docs.airnow.gov/
+    epa_aqi_api_key: str = ""
+
 
 # Single global instance. Import this everywhere.
 settings = Settings()

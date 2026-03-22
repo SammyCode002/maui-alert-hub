@@ -141,3 +141,57 @@ export interface CommunityAlertsResponse {
   alerts: CommunityAlert[]
   total: number
 }
+
+// ============================================================
+// Tsunami Types
+// ============================================================
+
+export interface TsunamiAlert {
+  id: string | null
+  event: string
+  severity: AlertSeverity
+  headline: string
+  description: string
+  areas: string | null
+  onset: string | null
+  expires: string | null
+}
+
+export interface TsunamiResponse {
+  alerts: TsunamiAlert[]
+  last_updated: string | null
+}
+
+// ============================================================
+// Air Quality Types
+// ============================================================
+
+export interface AQIReading {
+  parameter: string
+  aqi: number
+  category: string
+  category_number: number
+  reporting_area: string
+}
+
+export interface AQIResponse {
+  readings: AQIReading[]
+  location: string
+  last_updated: string | null
+  is_vog_advisory: boolean
+}
+
+// ============================================================
+// Forecast City
+// ============================================================
+
+export type ForecastCityKey = 'kahului' | 'lahaina' | 'kihei' | 'hana' | 'paia' | 'wailea'
+
+export const FORECAST_CITIES: Record<ForecastCityKey, string> = {
+  kahului: 'Kahului',
+  lahaina: 'Lahaina',
+  kihei: 'Kihei',
+  hana: 'Hana',
+  paia: 'Paia',
+  wailea: 'Wailea',
+}

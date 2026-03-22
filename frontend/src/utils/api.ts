@@ -9,6 +9,7 @@
 import type {
   RoadResponse, WeatherResponse, EarthquakeResponse,
   VolcanicResponse, SurfResponse, CommunityAlertsResponse,
+  TsunamiResponse, AQIResponse, ForecastCityKey,
 } from './types'
 
 // In dev, Vite proxies /api to localhost:8000 (see vite.config.ts)
@@ -56,8 +57,8 @@ export async function refreshRoadClosures(): Promise<RoadResponse> {
   return fetchAPI<RoadResponse>('/roads/refresh')
 }
 
-export async function getWeather(): Promise<WeatherResponse> {
-  return fetchAPI<WeatherResponse>('/weather/')
+export async function getWeather(city: ForecastCityKey = 'kahului'): Promise<WeatherResponse> {
+  return fetchAPI<WeatherResponse>(`/weather/?city=${city}`)
 }
 
 export async function getWeatherAlerts() {
@@ -82,6 +83,18 @@ export async function getSurf(): Promise<SurfResponse> {
 
 export async function getCommunityAlerts(): Promise<CommunityAlertsResponse> {
   return fetchAPI<CommunityAlertsResponse>('/community-alerts/')
+}
+
+export async function getTsunami(): Promise<TsunamiResponse> {
+  return fetchAPI<TsunamiResponse>('/tsunami/')
+}
+
+export async function getAQI(): Promise<AQIResponse> {
+  return fetchAPI<AQIResponse>('/aqi/')
+}
+
+export async function getForecastForCity(city: ForecastCityKey): Promise<WeatherResponse> {
+  return fetchAPI<WeatherResponse>(`/weather/?city=${city}`)
 }
 
 export async function getVapidPublicKey(): Promise<string | null> {

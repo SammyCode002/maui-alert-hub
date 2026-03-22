@@ -259,3 +259,60 @@ class CommunityAlertsResponse(BaseModel):
     """API response wrapper for community alerts."""
     alerts: list[CommunityAlert]
     total: int
+
+
+# ============================================================
+# Tsunami Models
+# ============================================================
+
+class TsunamiAlert(BaseModel):
+    """
+    A tsunami alert issued by NWS/PTWC for Hawaii coastal areas.
+
+    Event types: Tsunami Warning, Tsunami Watch, Tsunami Advisory,
+    Tsunami Information Statement.
+    """
+    id: Optional[str] = Field(None, description="NWS alert ID")
+    event: str = Field(..., description="Alert event type (e.g., 'Tsunami Warning')")
+    severity: AlertSeverity = Field(..., description="Alert severity")
+    headline: str = Field(..., description="Short summary headline")
+    description: str = Field(..., description="Full alert description")
+    areas: Optional[str] = Field(None, description="Affected areas")
+    onset: Optional[datetime] = Field(None, description="Alert start time")
+    expires: Optional[datetime] = Field(None, description="Alert expiry time")
+
+
+class TsunamiResponse(BaseModel):
+    """API response wrapper for tsunami data."""
+    alerts: list[TsunamiAlert]
+    last_updated: Optional[datetime] = None
+
+
+# ============================================================
+# Air Quality Models
+# ============================================================
+
+class AQIReading(BaseModel):
+    """
+    A single air quality reading from EPA AirNow.
+
+    AQI Categories:
+      1 Good (0-50), 2 Moderate (51-100), 3 USG (101-150),
+      4 Unhealthy (151-200), 5 Very Unhealthy (201-300), 6 Hazardous (301+)
+    """
+    parameter: str = Field(..., description="Pollutant name (e.g., 'PM2.5', 'O3')")
+    aqi: int = Field(..., description="Air Quality Index value")
+    category: str = Field(..., description="Category name (e.g., 'Good')")
+    category_number: int = Field(..., description="Category number 1-6")
+    reporting_area: str = Field(..., description="Monitoring area name")
+
+
+class AQIResponse(BaseModel):
+    """API response wrapper for air quality data."""
+    readings: list[AQIReading]
+    location: str = "Maui, Hawaii"
+    last_updated: Optional[datetime] = None
+    is_vog_advisory: bool = Field(
+        default=False,
+        description="True when any PM2.5 or SO2 reading is Unhealthy or worse"
+    )
