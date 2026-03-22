@@ -36,8 +36,8 @@ NWS_BASE = "https://api.weather.gov"
 # Maui grid point (Kahului area, central Maui)
 # You find this by hitting: https://api.weather.gov/points/20.8893,-156.4729
 MAUI_GRID_OFFICE = "HFO"  # Honolulu Forecast Office
-MAUI_GRID_X = 153
-MAUI_GRID_Y = 64
+MAUI_GRID_X = 212
+MAUI_GRID_Y = 126
 
 # Maui County zone for alerts
 MAUI_ZONE = "HIZ023"  # Maui Central Valley North
