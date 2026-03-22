@@ -139,40 +139,6 @@ export default function App() {
         )}
 
         {/* ============================================= */}
-        {/* EARTHQUAKE SECTION                            */}
-        {/* ============================================= */}
-        <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-ocean-400" />
-            <h2 className="font-display font-bold text-lg">Recent Earthquakes</h2>
-            {quakes.data && quakes.data.total > 0 && (
-              <span className="bg-ocean-700/40 text-ocean-300 text-xs font-bold px-2 py-0.5 rounded-full">
-                {quakes.data.total} nearby
-              </span>
-            )}
-            <span className="text-ocean-500 text-xs ml-1">M2.5+, 300km radius</span>
-          </div>
-
-          {quakes.loading ? (
-            <LoadingSpinner message="Checking USGS earthquake feed..." />
-          ) : quakes.error ? (
-            <ErrorMessage message={quakes.error} onRetry={quakes.refresh} />
-          ) : quakes.data?.earthquakes && quakes.data.earthquakes.length > 0 ? (
-            <div className="space-y-3">
-              {quakes.data.earthquakes.map(quake => (
-                <EarthquakeCard key={quake.id} quake={quake} />
-              ))}
-            </div>
-          ) : (
-            <div className="card bg-ocean-800/20 border-ocean-700/20">
-              <p className="text-ocean-400 text-sm text-center py-2">
-                No earthquakes above M2.5 near Hawaii recently.
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* ============================================= */}
         {/* ROAD CLOSURES SECTION                         */}
         {/* ============================================= */}
         <section>
@@ -203,6 +169,40 @@ export default function App() {
             </div>
           ) : (
             <EmptyState message="No road closures reported. Drive safe!" />
+          )}
+        </section>
+
+        {/* ============================================= */}
+        {/* EARTHQUAKE SECTION                            */}
+        {/* ============================================= */}
+        <section>
+          <div className="flex items-center gap-2 mb-4">
+            <Activity className="w-5 h-5 text-ocean-400" />
+            <h2 className="font-display font-bold text-lg">Recent Earthquakes</h2>
+            {quakes.data && quakes.data.total > 0 && (
+              <span className="bg-ocean-700/40 text-ocean-300 text-xs font-bold px-2 py-0.5 rounded-full">
+                {quakes.data.total} nearby
+              </span>
+            )}
+            <span className="text-ocean-500 text-xs ml-1">M2.5+, 300km radius</span>
+          </div>
+
+          {quakes.loading ? (
+            <LoadingSpinner message="Checking USGS earthquake feed..." />
+          ) : quakes.error ? (
+            <ErrorMessage message={quakes.error} onRetry={quakes.refresh} />
+          ) : quakes.data?.earthquakes && quakes.data.earthquakes.length > 0 ? (
+            <div className="space-y-3">
+              {quakes.data.earthquakes.map(quake => (
+                <EarthquakeCard key={quake.id} quake={quake} />
+              ))}
+            </div>
+          ) : (
+            <div className="card border-ocean-700/20">
+              <p className="text-ocean-400 text-sm text-center py-2">
+                No earthquakes above M2.5 near Hawaii recently.
+              </p>
+            </div>
           )}
         </section>
 
