@@ -5,7 +5,7 @@
  * It fetches road and weather data, then renders the sections.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MapPin, CloudLightning, Route } from 'lucide-react'
 import Header from './components/Header'
 import RoadCard from './components/RoadCard'
@@ -17,6 +17,7 @@ import { getRoadClosures, getWeather } from './utils/api'
 
 export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   // Fetch road closures
   const roads = useApi(getRoadClosures)
@@ -31,12 +32,41 @@ export default function App() {
     setIsRefreshing(false)
   }, [roads, weather])
 
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      roads.refresh()
+      weather.refresh()
+    }, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [roads.refresh, weather.refresh])
+
+  // Track online/offline status
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true)
+    const onOffline = () => setIsOnline(false)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
+
   // Count active alerts for the badge
   const alertCount = weather.data?.alerts?.length ?? 0
 
   return (
     <div className="min-h-screen bg-ocean-900">
       <Header onRefresh={handleRefresh} isRefreshing={isRefreshing} />
+
+      {!isOnline && (
+        <div className="bg-amber-900/80 border-b border-amber-700/50 px-4 py-2 text-center">
+          <p className="text-amber-300 text-sm">
+            You're offline. Showing cached data.
+          </p>
+        </div>
+      )}
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
 

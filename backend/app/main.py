@@ -7,17 +7,23 @@ This is the main entry point. It sets up the FastAPI app, CORS, logging,
 and registers all API routes.
 """
 
+import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.roads import router as roads_router
 from app.api.weather import router as weather_router
 from app.api.health import router as health_router
+from app.scrapers.road_scraper import scrape_road_closures
+from app.scrapers.dot_scraper import scrape_dot_closures
 from app.services.config import settings
+
+scheduler = AsyncIOScheduler()
 
 
 # ============================================================
@@ -38,13 +44,35 @@ logger = logging.getLogger("maui_alert_hub")
 async def lifespan(app: FastAPI):
     """
     Runs on startup and shutdown.
-    Startup: log config, initialize scrapers.
-    Shutdown: clean up resources.
+    Startup: warm road cache, start background scrape scheduler.
+    Shutdown: stop scheduler, clean up resources.
     """
     logger.info("Starting Maui Alert Hub API")
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Scrape interval: {settings.scrape_interval_minutes} minutes")
+
+    # Warm both road caches immediately on startup so first request is fast
+    logger.info("Warming road data cache on startup...")
+    await asyncio.gather(scrape_road_closures(), scrape_dot_closures())
+
+    # Schedule periodic background scraping
+    scheduler.add_job(
+        scrape_road_closures, "interval",
+        minutes=settings.scrape_interval_minutes, id="scrape_county",
+    )
+    scheduler.add_job(
+        scrape_dot_closures, "interval",
+        minutes=10, id="scrape_dot",
+    )
+    scheduler.start()
+    logger.info(
+        f"Scheduler started | county every {settings.scrape_interval_minutes}min "
+        f"| DOT every 10min"
+    )
+
     yield
+
+    scheduler.shutdown()
     logger.info("Shutting down Maui Alert Hub API")
 
 

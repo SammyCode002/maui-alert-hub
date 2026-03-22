@@ -1,5 +1,5 @@
 """
-Unit tests for the road closure scraper parsing logic.
+Unit tests for the road closure scraper parsing logic (county + DOT).
 
 These test the three helper functions directly — no HTTP calls needed.
 This matters because the county website HTML structure can change anytime,
@@ -14,6 +14,11 @@ from app.scrapers.road_scraper import (
     _extract_road_name,
     _extract_location,
     _determine_status,
+)
+from app.scrapers.dot_scraper import (
+    _dot_extract_road_name,
+    _dot_determine_status,
+    _dot_extract_location,
 )
 
 
@@ -133,3 +138,100 @@ class TestDetermineStatus:
     def test_open_returns_open(self):
         from app.models.schemas import RoadStatus
         assert _determine_status("Road is now open") == RoadStatus.OPEN
+
+
+# ============================================================
+# DOT Scraper Tests
+# ============================================================
+
+class TestDotExtractRoadName:
+    """Tests for _dot_extract_road_name — parses DOT lane closure text."""
+
+    def test_lane_closed_on_avenue_with_route(self):
+        result = _dot_extract_road_name(
+            "Right merge lane closed on Puunene Avenue (Route 3500) in the southbound direction at Wakea Avenue"
+        )
+        assert result == "Puunene Avenue (Route 3500)"
+
+    def test_lane_closure_on_highway_with_route(self):
+        result = _dot_extract_road_name(
+            "Left lane closure on Honoapiilani Highway (Route 30) in the northbound direction between Prison Street and Dickenson Street"
+        )
+        assert result == "Honoapiilani Highway (Route 30)"
+
+    def test_single_lane_closure_on_road(self):
+        result = _dot_extract_road_name(
+            "Right single lane closure on Crater Road (Route 378) the northbound direction"
+        )
+        assert result == "Crater Road (Route 378)"
+
+    def test_roving_closures_on_avenue(self):
+        result = _dot_extract_road_name(
+            "Roving single lane closures on Puunene Avenue (Route 3500) in both directions between Wakea Avenue and Kuihelani Highway"
+        )
+        assert result == "Puunene Avenue (Route 3500)"
+
+    def test_no_road_returns_unknown(self):
+        assert _dot_extract_road_name("Lane closure in effect tonight") == "Unknown Road"
+
+
+class TestDotDetermineStatus:
+    """Tests for _dot_determine_status."""
+
+    def test_lane_closed_returns_restricted(self):
+        from app.models.schemas import RoadStatus
+        assert _dot_determine_status(
+            "Right merge lane closed on Puunene Avenue"
+        ) == RoadStatus.RESTRICTED
+
+    def test_lane_closure_returns_restricted(self):
+        from app.models.schemas import RoadStatus
+        assert _dot_determine_status(
+            "Left lane closure on Honoapiilani Highway"
+        ) == RoadStatus.RESTRICTED
+
+    def test_roving_returns_restricted(self):
+        from app.models.schemas import RoadStatus
+        assert _dot_determine_status(
+            "Roving single lane closures on Puunene Avenue"
+        ) == RoadStatus.RESTRICTED
+
+    def test_road_closure_returns_closed(self):
+        from app.models.schemas import RoadStatus
+        assert _dot_determine_status(
+            "Road closure on Hana Highway due to rockfall"
+        ) == RoadStatus.CLOSED
+
+    def test_closed_to_traffic_returns_closed(self):
+        from app.models.schemas import RoadStatus
+        assert _dot_determine_status(
+            "Road closed to traffic on Piilani Highway"
+        ) == RoadStatus.CLOSED
+
+
+class TestDotExtractLocation:
+    """Tests for _dot_extract_location."""
+
+    def test_between_cross_streets(self):
+        result = _dot_extract_location(
+            "Left lane closure on Honoapiilani Highway (Route 30) in the northbound direction between Prison Street and Dickenson Street, 24-hours a day"
+        )
+        assert result == "Prison Street and Dickenson Street"
+
+    def test_between_mile_markers(self):
+        result = _dot_extract_location(
+            "Right merge lane closed on Puunene Avenue (Route 3500) at Wakea Avenue, between mile marker 0.4 and 0.5"
+        )
+        assert "0.4" in result
+
+    def test_at_cross_street(self):
+        result = _dot_extract_location(
+            "Right merge lane closed on Puunene Avenue (Route 3500) at Wakea Avenue"
+        )
+        assert result == "Wakea Avenue"
+
+    def test_no_location_returns_none(self):
+        result = _dot_extract_location(
+            "Lane closure on Crater Road for emergency repair work"
+        )
+        assert result is None

@@ -5,6 +5,7 @@ GET /api/roads/        - List all current road closures/restrictions
 GET /api/roads/refresh - Force a fresh scrape of county data
 """
 
+import asyncio
 import logging
 from datetime import datetime
 
@@ -12,6 +13,7 @@ from fastapi import APIRouter
 
 from app.models.schemas import RoadResponse
 from app.scrapers.road_scraper import get_cached_roads, scrape_road_closures
+from app.scrapers.dot_scraper import get_cached_dot_roads, scrape_dot_closures
 
 logger = logging.getLogger("maui_alert_hub.api.roads")
 
@@ -23,20 +25,27 @@ async def get_road_closures():
     """
     Get all current road closures and restrictions on Maui.
 
-    Returns cached data if available, otherwise triggers a fresh scrape.
-    The scraper runs on a schedule, so this usually returns fast from cache.
+    Merges data from Maui County (emergency closures) and Hawaii DOT
+    (lane closures / construction). Returns cached data if available,
+    otherwise triggers a fresh scrape from both sources.
     """
-    roads, last_scraped = get_cached_roads()
+    county_roads, county_scraped = get_cached_roads()
+    dot_roads, dot_scraped = get_cached_dot_roads()
 
-    # If we have no cached data, do a fresh scrape
-    if not roads:
-        logger.info("No cached road data, triggering fresh scrape")
-        roads = await scrape_road_closures()
-        last_scraped = datetime.now()
+    if not county_roads and not dot_roads:
+        logger.info("No cached road data, triggering fresh scrape from all sources")
+        county_roads, dot_roads = await asyncio.gather(
+            scrape_road_closures(),
+            scrape_dot_closures(),
+        )
+        county_scraped = datetime.now()
+
+    all_roads = county_roads + dot_roads
+    last_scraped = county_scraped or dot_scraped
 
     return RoadResponse(
-        roads=roads,
-        total=len(roads),
+        roads=all_roads,
+        total=len(all_roads),
         last_scraped=last_scraped,
     )
 
@@ -44,16 +53,17 @@ async def get_road_closures():
 @router.get("/refresh", response_model=RoadResponse)
 async def refresh_road_closures():
     """
-    Force a fresh scrape of road closure data.
-
-    Use this when you want the absolute latest data.
-    Note: Please don't call this every second, the county site has limits.
+    Force a fresh scrape from all sources (Maui County + Hawaii DOT).
     """
     logger.info("Manual road data refresh requested")
-    roads = await scrape_road_closures()
+    county_roads, dot_roads = await asyncio.gather(
+        scrape_road_closures(),
+        scrape_dot_closures(),
+    )
+    all_roads = county_roads + dot_roads
 
     return RoadResponse(
-        roads=roads,
-        total=len(roads),
+        roads=all_roads,
+        total=len(all_roads),
         last_scraped=datetime.now(),
     )
