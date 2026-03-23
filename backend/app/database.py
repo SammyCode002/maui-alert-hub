@@ -19,6 +19,7 @@ Tables:
 
 import logging
 import os
+import urllib.parse
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Integer, MetaData, String, Table, func, text,
@@ -48,9 +49,28 @@ IS_POSTGRES = DATABASE_URL.startswith("postgresql")
 
 # ============================================================
 # Async engine
+# asyncpg does not accept sslmode/channel_binding as URL params.
+# Strip them and pass ssl=True via connect_args instead.
 # ============================================================
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+_connect_args = {}
+if IS_POSTGRES:
+    _parsed = urllib.parse.urlparse(DATABASE_URL)
+    _params = urllib.parse.parse_qs(_parsed.query)
+    _ssl_required = _params.get("sslmode", ["disable"])[0] in (
+        "require", "verify-ca", "verify-full"
+    )
+    _clean_params = {
+        k: v[0] for k, v in _params.items()
+        if k not in ("sslmode", "channel_binding")
+    }
+    DATABASE_URL = urllib.parse.urlunparse(
+        _parsed._replace(query=urllib.parse.urlencode(_clean_params))
+    )
+    if _ssl_required:
+        _connect_args = {"ssl": True}
+
+engine = create_async_engine(DATABASE_URL, echo=False, connect_args=_connect_args)
 
 # ============================================================
 # Table definitions (SQLAlchemy generates correct DDL per backend)
