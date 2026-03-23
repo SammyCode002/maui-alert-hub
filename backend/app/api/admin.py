@@ -11,10 +11,10 @@ DELETE /api/admin/alerts/{id}   — deactivate alert
 import logging
 from datetime import datetime
 
-import aiosqlite
 from fastapi import APIRouter, HTTPException, Header, Request
+from sqlalchemy import text
 
-from app.database import DB_PATH
+from app.database import engine
 from app.models.schemas import CommunityAlert, CommunityAlertCreate, CommunityAlertsResponse
 from app.services.config import settings
 from app.services.limiter import limiter, ADMIN
@@ -44,16 +44,21 @@ async def create_alert(
 
     expires_str = body.expires_at.isoformat() if body.expires_at else None
 
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute(
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
             """
             INSERT INTO community_alerts (title, message, severity, expires_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (body.title, body.message, body.severity, expires_str),
-        )
-        await db.commit()
-        alert_id = cursor.lastrowid
+            VALUES (:title, :message, :severity, :expires_at)
+            RETURNING id
+            """
+        ), {
+            "title": body.title,
+            "message": body.message,
+            "severity": body.severity,
+            "expires_at": expires_str,
+        })
+        alert_id = result.scalar()
+        await conn.commit()
 
     logger.info(f"Community alert created: id={alert_id} title={body.title!r}")
 
@@ -77,12 +82,11 @@ async def list_all_alerts(
     """List all community alerts including inactive/expired (admin view)."""
     _require_admin(authorization)
 
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
             "SELECT * FROM community_alerts ORDER BY created_at DESC"
-        )
-        rows = await cursor.fetchall()
+        ))
+        rows = result.mappings().fetchall()
 
     alerts = [
         CommunityAlert(
@@ -90,8 +94,8 @@ async def list_all_alerts(
             title=row["title"],
             message=row["message"],
             severity=row["severity"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            expires_at=datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None,
+            created_at=datetime.fromisoformat(str(row["created_at"])),
+            expires_at=datetime.fromisoformat(str(row["expires_at"])) if row["expires_at"] else None,
             is_active=bool(row["is_active"]),
         )
         for row in rows
@@ -110,11 +114,11 @@ async def deactivate_alert(
     """Deactivate (soft-delete) a community alert."""
     _require_admin(authorization)
 
-    async with aiosqlite.connect(DB_PATH) as db:
-        result = await db.execute(
-            "UPDATE community_alerts SET is_active = 0 WHERE id = ?", (alert_id,)
-        )
-        await db.commit()
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
+            "UPDATE community_alerts SET is_active = 0 WHERE id = :id"
+        ), {"id": alert_id})
+        await conn.commit()
         if result.rowcount == 0:
             raise HTTPException(status_code=404, detail="Alert not found")
 

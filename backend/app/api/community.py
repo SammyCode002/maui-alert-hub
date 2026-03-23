@@ -9,12 +9,11 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Request
+from sqlalchemy import text
 
-from app.database import DB_PATH
+from app.database import engine
 from app.models.schemas import CommunityAlertsResponse, CommunityAlert
 from app.services.limiter import limiter, GENERAL
-
-import aiosqlite
 
 logger = logging.getLogger("maui_alert_hub.api.community")
 router = APIRouter()
@@ -30,19 +29,17 @@ async def get_community_alerts(request: Request):
     """
     now = datetime.now().isoformat()
 
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
             """
             SELECT id, title, message, severity, created_at, expires_at, is_active
             FROM community_alerts
             WHERE is_active = 1
-              AND (expires_at IS NULL OR expires_at > ?)
+              AND (expires_at IS NULL OR expires_at > :now)
             ORDER BY created_at DESC
-            """,
-            (now,),
-        )
-        rows = await cursor.fetchall()
+            """
+        ), {"now": now})
+        rows = result.mappings().fetchall()
 
     alerts = [
         CommunityAlert(
@@ -50,8 +47,8 @@ async def get_community_alerts(request: Request):
             title=row["title"],
             message=row["message"],
             severity=row["severity"],
-            created_at=datetime.fromisoformat(row["created_at"]),
-            expires_at=datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None,
+            created_at=datetime.fromisoformat(str(row["created_at"])),
+            expires_at=datetime.fromisoformat(str(row["expires_at"])) if row["expires_at"] else None,
             is_active=bool(row["is_active"]),
         )
         for row in rows

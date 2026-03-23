@@ -35,7 +35,7 @@ from app.scrapers.dot_scraper import scrape_dot_closures
 from app.scrapers.usgs_volcano_client import fetch_volcanic_alerts
 from app.scrapers.noaa_buoy_client import fetch_surf_conditions
 from app.scrapers.aqi_client import fetch_aqi
-from app.database import init_db
+from app.database import init_db, engine
 from app.services.config import settings
 from app.services.limiter import limiter
 
@@ -110,6 +110,7 @@ async def lifespan(app: FastAPI):
     yield
 
     scheduler.shutdown()
+    await engine.dispose()
     logger.info("Shutting down Maui Alert Hub API")
 
 

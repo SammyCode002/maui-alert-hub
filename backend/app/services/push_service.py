@@ -15,11 +15,12 @@ If keys are not configured, push sending is silently skipped.
 
 import json
 import logging
+from datetime import datetime, timedelta
 
-import aiosqlite
+from sqlalchemy import text
 from pywebpush import webpush, WebPushException
 
-from app.database import DB_PATH
+from app.database import engine
 from app.services.config import settings
 
 logger = logging.getLogger("maui_alert_hub.push")
@@ -36,58 +37,55 @@ def _vapid_configured() -> bool:
 async def save_subscription(endpoint: str, p256dh: str, auth: str, saved_routes: list[str] | None = None) -> None:
     """Insert or update a push subscription with optional saved road IDs."""
     routes_json = json.dumps(saved_routes or [])
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
+    async with engine.connect() as conn:
+        await conn.execute(text(
             """INSERT INTO push_subscriptions (endpoint, p256dh, auth, saved_routes)
-               VALUES (?, ?, ?, ?)
+               VALUES (:endpoint, :p256dh, :auth, :saved_routes)
                ON CONFLICT(endpoint) DO UPDATE SET
                  p256dh=excluded.p256dh,
                  auth=excluded.auth,
-                 saved_routes=excluded.saved_routes""",
-            (endpoint, p256dh, auth, routes_json),
-        )
-        await db.commit()
+                 saved_routes=excluded.saved_routes"""
+        ), {"endpoint": endpoint, "p256dh": p256dh, "auth": auth, "saved_routes": routes_json})
+        await conn.commit()
     logger.info(f"Subscription saved: {endpoint[:40]}... routes={len(saved_routes or [])}")
 
 
 async def update_subscription_routes(endpoint: str, saved_routes: list[str]) -> None:
     """Update the saved road IDs for an existing subscription."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE push_subscriptions SET saved_routes = ? WHERE endpoint = ?",
-            (json.dumps(saved_routes), endpoint),
-        )
-        await db.commit()
+    async with engine.connect() as conn:
+        await conn.execute(text(
+            "UPDATE push_subscriptions SET saved_routes = :saved_routes WHERE endpoint = :endpoint"
+        ), {"saved_routes": json.dumps(saved_routes), "endpoint": endpoint})
+        await conn.commit()
     logger.info(f"Updated saved routes for {endpoint[:40]}... count={len(saved_routes)}")
 
 
 async def delete_subscription(endpoint: str) -> None:
     """Remove a push subscription by endpoint."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,)
-        )
-        await db.commit()
+    async with engine.connect() as conn:
+        await conn.execute(text(
+            "DELETE FROM push_subscriptions WHERE endpoint = :endpoint"
+        ), {"endpoint": endpoint})
+        await conn.commit()
     logger.info(f"Subscription removed: {endpoint[:40]}...")
 
 
 async def get_all_subscriptions() -> list[dict]:
     """Return all stored push subscriptions including saved_routes."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
             "SELECT endpoint, p256dh, auth, saved_routes FROM push_subscriptions"
-        )
-        rows = await cursor.fetchall()
-    result = []
+        ))
+        rows = result.mappings().fetchall()
+    output = []
     for row in rows:
         d = dict(row)
         try:
             d["saved_routes"] = json.loads(d.get("saved_routes") or "[]")
         except Exception:
             d["saved_routes"] = []
-        result.append(d)
-    return result
+        output.append(d)
+    return output
 
 
 # ============================================================
@@ -96,38 +94,37 @@ async def get_all_subscriptions() -> list[dict]:
 
 async def record_alert_history(alerts) -> None:
     """Upsert current NWS alerts into alert_history table."""
-    async with aiosqlite.connect(DB_PATH) as db:
+    async with engine.connect() as conn:
         for alert in alerts:
             if not alert.id:
                 continue
-            await db.execute(
-                """INSERT OR IGNORE INTO alert_history
+            await conn.execute(text(
+                """INSERT INTO alert_history
                    (nws_id, headline, severity, alert_type, areas, onset, expires)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    alert.id,
-                    alert.headline,
-                    alert.severity.value,
-                    alert.alert_type.value,
-                    alert.areas,
-                    alert.onset.isoformat() if alert.onset else None,
-                    alert.expires.isoformat() if alert.expires else None,
-                ),
-            )
-        await db.commit()
+                   VALUES (:nws_id, :headline, :severity, :alert_type, :areas, :onset, :expires)
+                   ON CONFLICT(nws_id) DO NOTHING"""
+            ), {
+                "nws_id": alert.id,
+                "headline": alert.headline,
+                "severity": alert.severity.value,
+                "alert_type": alert.alert_type.value,
+                "areas": alert.areas,
+                "onset": alert.onset.isoformat() if alert.onset else None,
+                "expires": alert.expires.isoformat() if alert.expires else None,
+            })
+        await conn.commit()
 
 
 async def get_alert_history(days: int = 7) -> list[dict]:
     """Return alert history for the last N days, newest first."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    async with engine.connect() as conn:
+        result = await conn.execute(text(
             """SELECT * FROM alert_history
-               WHERE first_seen_at >= datetime('now', ?)
-               ORDER BY first_seen_at DESC""",
-            (f"-{days} days",),
-        )
-        rows = await cursor.fetchall()
+               WHERE first_seen_at >= :cutoff
+               ORDER BY first_seen_at DESC"""
+        ), {"cutoff": cutoff})
+        rows = result.mappings().fetchall()
     return [dict(row) for row in rows]
 
 
@@ -136,19 +133,18 @@ async def get_alert_history(days: int = 7) -> list[dict]:
 # ============================================================
 
 async def get_seen_alert_ids() -> set[str]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute("SELECT alert_id FROM seen_alert_ids")
-        rows = await cursor.fetchall()
+    async with engine.connect() as conn:
+        result = await conn.execute(text("SELECT alert_id FROM seen_alert_ids"))
+        rows = result.fetchall()
     return {row[0] for row in rows}
 
 
 async def mark_alerts_seen(alert_ids: list[str]) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.executemany(
-            "INSERT OR IGNORE INTO seen_alert_ids (alert_id) VALUES (?)",
-            [(aid,) for aid in alert_ids],
-        )
-        await db.commit()
+    async with engine.connect() as conn:
+        await conn.execute(text(
+            "INSERT INTO seen_alert_ids (alert_id) VALUES (:alert_id) ON CONFLICT DO NOTHING"
+        ), [{"alert_id": aid} for aid in alert_ids])
+        await conn.commit()
 
 
 async def check_and_notify_new_alerts(current_alerts) -> None:
@@ -157,7 +153,6 @@ async def check_and_notify_new_alerts(current_alerts) -> None:
     Broadcasts new alerts to ALL subscribers (weather alerts are always relevant).
     Also records all alerts in history.
     """
-    # Always record history regardless of push config
     await record_alert_history(current_alerts)
 
     if not _vapid_configured():
@@ -192,19 +187,18 @@ async def check_and_notify_new_alerts(current_alerts) -> None:
 # ============================================================
 
 async def get_seen_road_ids() -> set[str]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        cursor = await db.execute("SELECT road_id FROM seen_road_ids")
-        rows = await cursor.fetchall()
+    async with engine.connect() as conn:
+        result = await conn.execute(text("SELECT road_id FROM seen_road_ids"))
+        rows = result.fetchall()
     return {row[0] for row in rows}
 
 
 async def mark_roads_seen(road_ids: list[str]) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.executemany(
-            "INSERT OR IGNORE INTO seen_road_ids (road_id) VALUES (?)",
-            [(rid,) for rid in road_ids],
-        )
-        await db.commit()
+    async with engine.connect() as conn:
+        await conn.execute(text(
+            "INSERT INTO seen_road_ids (road_id) VALUES (:road_id) ON CONFLICT DO NOTHING"
+        ), [{"road_id": rid} for rid in road_ids])
+        await conn.commit()
 
 
 async def check_and_notify_road_closures(current_roads) -> None:
@@ -230,7 +224,6 @@ async def check_and_notify_road_closures(current_roads) -> None:
     subscriptions = await get_all_subscriptions()
 
     for road in new_roads:
-        # Find subscribers who have this road saved
         interested = [
             sub for sub in subscriptions
             if road.id in sub.get("saved_routes", [])

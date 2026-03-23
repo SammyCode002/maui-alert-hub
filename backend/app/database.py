@@ -1,103 +1,140 @@
 """
-SQLite database setup using aiosqlite.
+Database setup supporting SQLite (local dev) and PostgreSQL (production).
+
+Set DATABASE_URL env var to a PostgreSQL connection string to use PostgreSQL.
+Without it, falls back to a local SQLite file.
+
+Accepted URL formats (auto-promoted to the async driver variant):
+  (none / local dev)             -> sqlite+aiosqlite:///./maui_alert_hub.db
+  postgresql://user:pass@host/db -> postgresql+asyncpg://...
+  postgres://user:pass@host/db   -> Neon / Render shorthand, normalized
 
 Tables:
-  push_subscriptions  — Web Push subscriber endpoints + saved route IDs
-  seen_alert_ids      — NWS alert IDs already notified about (prevents duplicates)
-  seen_road_ids       — Road closure IDs already notified about
-  community_alerts    — Admin-posted alerts (power outages, water mains, etc.)
-  alert_history       — Past NWS alerts for the history view (last 7 days)
-
-NOTE: On Render free tier the filesystem persists between restarts but is reset
-on each new deploy. Push subscriptions will be lost after each deploy. Users will
-need to re-enable notifications after an app update. This is acceptable for MVP.
-For production, migrate to a hosted database (Supabase, Railway, etc.).
+  push_subscriptions  - Web Push subscriber endpoints + saved route IDs
+  seen_alert_ids      - NWS alert IDs already notified (dedup)
+  seen_road_ids       - Road closure IDs already notified (dedup)
+  community_alerts    - Admin-posted alerts (power outages, water mains, etc.)
+  alert_history       - Past NWS alerts for the history view (7 days)
 """
 
-import aiosqlite
 import logging
+import os
+
+from sqlalchemy import (
+    Boolean, Column, DateTime, Integer, MetaData, String, Table, func, text,
+)
+from sqlalchemy.ext.asyncio import create_async_engine
 
 logger = logging.getLogger("maui_alert_hub.database")
 
-DB_PATH = "./maui_alert_hub.db"
+# ============================================================
+# URL resolution
+# ============================================================
 
-CREATE_PUSH_SUBSCRIPTIONS = """
-CREATE TABLE IF NOT EXISTS push_subscriptions (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    endpoint     TEXT    UNIQUE NOT NULL,
-    p256dh       TEXT    NOT NULL,
-    auth         TEXT    NOT NULL,
-    saved_routes TEXT    DEFAULT '[]',
-    created_at   TEXT    DEFAULT (datetime('now'))
+DB_PATH = "./maui_alert_hub.db"  # SQLite fallback path
+
+_raw_url = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+
+if _raw_url.startswith("postgres://"):
+    DATABASE_URL = _raw_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif _raw_url.startswith("postgresql://") and "+asyncpg" not in _raw_url:
+    DATABASE_URL = _raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif _raw_url.startswith("sqlite://") and "+aiosqlite" not in _raw_url:
+    DATABASE_URL = _raw_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+else:
+    DATABASE_URL = _raw_url
+
+IS_POSTGRES = DATABASE_URL.startswith("postgresql")
+
+# ============================================================
+# Async engine
+# ============================================================
+
+engine = create_async_engine(DATABASE_URL, echo=False)
+
+# ============================================================
+# Table definitions (SQLAlchemy generates correct DDL per backend)
+# ============================================================
+
+metadata = MetaData()
+
+push_subscriptions = Table(
+    "push_subscriptions", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("endpoint", String, unique=True, nullable=False),
+    Column("p256dh", String, nullable=False),
+    Column("auth", String, nullable=False),
+    Column("saved_routes", String, server_default="[]"),
+    Column("created_at", DateTime, server_default=func.now()),
 )
-"""
 
-CREATE_SEEN_ALERT_IDS = """
-CREATE TABLE IF NOT EXISTS seen_alert_ids (
-    alert_id   TEXT PRIMARY KEY,
-    first_seen TEXT DEFAULT (datetime('now'))
+seen_alert_ids = Table(
+    "seen_alert_ids", metadata,
+    Column("alert_id", String, primary_key=True),
+    Column("first_seen", DateTime, server_default=func.now()),
 )
-"""
 
-CREATE_SEEN_ROAD_IDS = """
-CREATE TABLE IF NOT EXISTS seen_road_ids (
-    road_id    TEXT PRIMARY KEY,
-    first_seen TEXT DEFAULT (datetime('now'))
+seen_road_ids = Table(
+    "seen_road_ids", metadata,
+    Column("road_id", String, primary_key=True),
+    Column("first_seen", DateTime, server_default=func.now()),
 )
-"""
 
-CREATE_COMMUNITY_ALERTS = """
-CREATE TABLE IF NOT EXISTS community_alerts (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    title      TEXT    NOT NULL,
-    message    TEXT    NOT NULL,
-    severity   TEXT    DEFAULT 'warning',
-    created_at TEXT    DEFAULT (datetime('now')),
-    expires_at TEXT,
-    is_active  INTEGER DEFAULT 1
+community_alerts_table = Table(
+    "community_alerts", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("title", String, nullable=False),
+    Column("message", String, nullable=False),
+    Column("severity", String, server_default="warning"),
+    Column("created_at", DateTime, server_default=func.now()),
+    Column("expires_at", DateTime, nullable=True),
+    Column("is_active", Integer, server_default="1"),
 )
-"""
 
-CREATE_ALERT_HISTORY = """
-CREATE TABLE IF NOT EXISTS alert_history (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    nws_id       TEXT    UNIQUE,
-    headline     TEXT    NOT NULL,
-    severity     TEXT    NOT NULL,
-    alert_type   TEXT    NOT NULL,
-    areas        TEXT,
-    onset        TEXT,
-    expires      TEXT,
-    first_seen_at TEXT   DEFAULT (datetime('now'))
+alert_history_table = Table(
+    "alert_history", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("nws_id", String, unique=True, nullable=True),
+    Column("headline", String, nullable=False),
+    Column("severity", String, nullable=False),
+    Column("alert_type", String, nullable=False),
+    Column("areas", String, nullable=True),
+    Column("onset", String, nullable=True),
+    Column("expires", String, nullable=True),
+    Column("first_seen_at", DateTime, server_default=func.now()),
 )
-"""
 
+# ============================================================
+# Lifecycle
+# ============================================================
 
 async def init_db() -> None:
-    """Create all tables and run any schema migrations. Called once on startup."""
-    logger.info("Initializing SQLite database")
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(CREATE_PUSH_SUBSCRIPTIONS)
-        await db.execute(CREATE_SEEN_ALERT_IDS)
-        await db.execute(CREATE_SEEN_ROAD_IDS)
-        await db.execute(CREATE_COMMUNITY_ALERTS)
-        await db.execute(CREATE_ALERT_HISTORY)
+    """Create all tables and run schema migrations. Called once on startup."""
+    logger.info(f"Initializing database ({'PostgreSQL' if IS_POSTGRES else 'SQLite'})")
 
-        # Migrate existing push_subscriptions table to add saved_routes if missing
-        try:
-            await db.execute(
-                "ALTER TABLE push_subscriptions ADD COLUMN saved_routes TEXT DEFAULT '[]'"
-            )
-            logger.info("Migrated push_subscriptions: added saved_routes column")
-        except Exception:
-            pass  # Column already exists
+    async with engine.begin() as conn:
+        await conn.run_sync(metadata.create_all)
 
-        await db.commit()
+        # Migrate: add saved_routes to existing push_subscriptions tables
+        if IS_POSTGRES:
+            await conn.execute(text(
+                "ALTER TABLE push_subscriptions "
+                "ADD COLUMN IF NOT EXISTS saved_routes TEXT DEFAULT '[]'"
+            ))
+        else:
+            try:
+                await conn.execute(text(
+                    "ALTER TABLE push_subscriptions "
+                    "ADD COLUMN saved_routes TEXT DEFAULT '[]'"
+                ))
+                logger.info("Migrated push_subscriptions: added saved_routes column")
+            except Exception:
+                pass  # Column already exists
+
     logger.info("Database ready")
 
 
 async def get_db():
-    """Yield an aiosqlite connection. Use as an async context manager."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        yield db
+    """Yield an async SQLAlchemy connection. Use as an async context manager."""
+    async with engine.connect() as conn:
+        yield conn
