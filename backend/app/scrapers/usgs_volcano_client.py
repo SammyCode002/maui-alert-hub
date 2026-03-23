@@ -1,20 +1,17 @@
 """
-USGS Volcano Notification Service client.
+USGS Volcano client.
 
-Fetches current alert levels and recent notifications for Hawaii volcanoes
-from the USGS Volcano Notification Service (VNS) JSON feed.
+Fetches currently elevated Hawaii volcanoes from the USGS HANS public API.
 
-Hawaii volcanoes monitored:
-  - Kīlauea     (most active, Big Island)
-  - Mauna Loa   (second most active, Big Island)
-  - Haleakalā   (Maui — relevant to our users)
-  - Hualālai    (Big Island)
-  - Mauna Kea   (Big Island)
+Endpoint: GET /hans-public/api/volcano/getElevatedVolcanoes
+Returns volcanoes where alert level >= Advisory or color code >= Yellow.
+HVO (Hawaiian Volcano Observatory) volcanoes are filtered to keep results
+relevant to Hawaii residents.
 
-Alert levels (ground hazards): Normal → Advisory → Watch → Warning
-Aviation color codes:           Green  → Yellow   → Orange → Red
+Alert levels (ground hazards): Normal -> Advisory -> Watch -> Warning
+Aviation color codes:           Green  -> Yellow   -> Orange -> Red
 
-USGS VNS: https://volcanoes.usgs.gov/vns2/
+API docs: https://volcanoes.usgs.gov/hans-public/api/volcano/
 """
 
 import logging
@@ -28,41 +25,32 @@ from app.models.schemas import VolcanicAlert
 
 logger = logging.getLogger("maui_alert_hub.volcano")
 
-USGS_VNS_URL = "https://volcanoes.usgs.gov/vns2/notif_data/vns_notifs.json"
+USGS_ELEVATED_URL = "https://volcanoes.usgs.gov/hans-public/api/volcano/getElevatedVolcanoes"
 
 # In-memory cache
 _volcano_cache: list[VolcanicAlert] = []
 _volcano_last_fetched: Optional[datetime] = None
 
-HAWAII_VOLCANOES = {
-    "kilauea", "kīlauea",
-    "mauna loa",
-    "haleakala", "haleakalā",
-    "hualalai", "hualālai",
-    "mauna kea",
-    "lo'ihi", "loihi", "lō'ihi",
-}
-
 
 async def fetch_volcanic_alerts() -> list[VolcanicAlert]:
     """
-    Fetch current volcanic activity notifications for Hawaii volcanoes.
+    Fetch currently elevated Hawaii volcano alerts from USGS HANS API.
 
-    Returns cached data on error. Filters to Hawaii volcanoes only.
+    Returns cached data on error. Filters to HVO-monitored volcanoes.
 
     4x4 Logging: inputs (URL), outputs (alert count), timing, status
     """
     global _volcano_cache, _volcano_last_fetched
 
     start_time = time.time()
-    logger.info(f"INPUT  | fetch_volcanic_alerts | url={USGS_VNS_URL}")
+    logger.info(f"INPUT  | fetch_volcanic_alerts | url={USGS_ELEVATED_URL}")
 
     alerts = []
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
-                USGS_VNS_URL,
+                USGS_ELEVATED_URL,
                 headers={"User-Agent": "MauiAlertHub/1.0"},
                 follow_redirects=True,
             )
@@ -70,7 +58,7 @@ async def fetch_volcanic_alerts() -> list[VolcanicAlert]:
             data = response.json()
 
         for item in data if isinstance(data, list) else []:
-            alert = _parse_volcanic_notification(item)
+            alert = _parse_elevated_volcano(item)
             if alert:
                 alerts.append(alert)
 
@@ -99,57 +87,43 @@ def get_cached_volcanic_alerts() -> tuple[list[VolcanicAlert], Optional[datetime
     return _volcano_cache, _volcano_last_fetched
 
 
-def _parse_volcanic_notification(item: dict) -> Optional[VolcanicAlert]:
+def _parse_elevated_volcano(item: dict) -> Optional[VolcanicAlert]:
     """
-    Parse one USGS VNS notification object into a VolcanicAlert.
+    Parse one USGS HANS elevated-volcano record into a VolcanicAlert.
 
-    The VNS JSON uses nested objects for volcano metadata.
-    Handles both flat and nested formats defensively.
+    Response fields:
+      obs_abbr, obs_fullname, volcano_name, vnum,
+      notice_type_cd, notice_identifier, sent_utc, sent_unixtime,
+      color_code, alert_level, notice_url, notice_data
     """
     try:
-        # Volcano name — may be nested under "volcano" key
-        volcano = item.get("volcano", {})
-        name = (
-            volcano.get("vName")
-            or item.get("volcano_name")
-            or item.get("vName")
-            or ""
-        )
-
-        if not name or name.lower() not in HAWAII_VOLCANOES:
+        # Only include HVO-monitored volcanoes (Hawaii)
+        if item.get("obs_abbr", "").upper() != "HVO":
             return None
 
-        alert_level = (
-            item.get("volcanicAlertLevel")
-            or item.get("alert_level")
-            or "Normal"
-        )
-        aviation_color = (
-            item.get("aviationColorCode")
-            or item.get("aviation_color")
-            or "Green"
-        )
+        name = item.get("volcano_name", "").strip()
+        if not name:
+            return None
 
-        # Notification text
+        alert_level = item.get("alert_level") or "Advisory"
+        aviation_color = item.get("color_code") or "Yellow"
+
+        notice_type = (item.get("notice_type_cd") or "").replace("_", " ").title()
         message = (
-            item.get("notifText")
-            or item.get("notification_text")
-            or item.get("message")
-            or "No details available."
-        )
-        message = str(message)[:400]
-
-        # Publication date — try ISO string or Unix timestamp
-        pub_raw = item.get("pubDate") or item.get("published_date") or item.get("pub_date")
-        published = _parse_date(pub_raw)
-
-        notif_id = str(
-            item.get("notificationId")
-            or item.get("id")
-            or f"{name}-{published.timestamp()}"
+            f"{notice_type} — Alert Level: {alert_level}, "
+            f"Aviation Color: {aviation_color}"
         )
 
-        url = item.get("archUrl") or item.get("url") or ""
+        # sent_unixtime is seconds since epoch
+        unix_ts = item.get("sent_unixtime")
+        if unix_ts:
+            published = datetime.fromtimestamp(int(unix_ts), tz=timezone.utc)
+        else:
+            sent_utc = item.get("sent_utc", "")
+            published = _parse_date(sent_utc)
+
+        notif_id = str(item.get("notice_identifier") or f"{name}-{published.timestamp()}")
+        url = item.get("notice_url") or ""
 
         return VolcanicAlert(
             id=notif_id,
@@ -165,12 +139,10 @@ def _parse_volcanic_notification(item: dict) -> Optional[VolcanicAlert]:
 
 
 def _parse_date(raw) -> datetime:
-    """Parse a date string or timestamp into a datetime. Falls back to now."""
-    if raw is None:
+    """Parse a date string into a datetime. Falls back to now."""
+    if not raw:
         return datetime.now(tz=timezone.utc)
     try:
-        if isinstance(raw, (int, float)):
-            return datetime.fromtimestamp(raw / 1000, tz=timezone.utc)
         return datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
     except Exception:
         return datetime.now(tz=timezone.utc)
