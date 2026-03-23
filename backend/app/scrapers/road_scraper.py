@@ -77,9 +77,13 @@ async def scrape_road_closures() -> list[RoadClosure]:
             if not _is_valid_closure(text):
                 logger.debug(f"SKIP   | filtered nav/junk link: {text[:60]}")
                 continue
+            road_name = _extract_road_name(text)
+            if not road_name:
+                logger.debug(f"SKIP   | could not parse road name from: {text[:80]}")
+                continue
             closure = RoadClosure(
                 id=f"county-{i}",
-                road_name=_extract_road_name(text),
+                road_name=road_name,
                 status=_determine_status(text),
                 description=text,
                 location=_extract_location(text),
@@ -135,11 +139,14 @@ def _is_valid_closure(text: str) -> bool:
     return has_pattern
 
 
-def _extract_road_name(text: str) -> str:
+def _extract_road_name(text: str) -> Optional[str]:
     """
     Extract the road name from a county alert string.
 
-    Handles three real-world county formats:
+    Returns None when the road name cannot be reliably parsed — callers
+    should skip those entries rather than showing "Unknown Road".
+
+    Handles real-world county formats:
       - "Road Closure: Lono Ave / W Kamehameha Ave"
       - "Road Closure: Kuihelani Hwy between Maui Lani Pkwy to Honoapiilani Hwy"
       - "ROAD CLOSURE: 03/22/26 AT 8:19 AM FOR KAMEHAMEHA V HIGHWAY ON MOLOKA'I"
@@ -164,7 +171,7 @@ def _extract_road_name(text: str) -> str:
         if name:
             return name  # Keep county's original casing (already title-case)
 
-    return "Unknown Road"
+    return None
 
 
 def _determine_status(text: str) -> RoadStatus:

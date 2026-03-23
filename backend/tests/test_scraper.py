@@ -81,8 +81,8 @@ class TestExtractRoadName:
     def test_update_format_no_date(self):
         assert _extract_road_name("**UPDATE HALEAKALA CRATER ROAD**") == "Haleakala Crater Road"
 
-    def test_unknown_format_returns_unknown(self):
-        assert _extract_road_name("Road Closure Notifications") == "Unknown Road"
+    def test_unknown_format_returns_none(self):
+        assert _extract_road_name("Road Closure Notifications") is None
 
     def test_another_road_closure_colon(self):
         assert _extract_road_name("Road Closure: Puunene Ave / E Wakea Ave") == "Puunene Ave / E Wakea Ave"
