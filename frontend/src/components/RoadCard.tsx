@@ -15,11 +15,11 @@ interface RoadCardProps {
   onToggleSave?: (id: string) => void
 }
 
-const statusConfig: Record<RoadStatus, { badge: string; label: string }> = {
-  closed: { badge: 'badge-closed', label: 'Closed' },
-  restricted: { badge: 'badge-restricted', label: 'Restricted' },
-  open: { badge: 'badge-open', label: 'Open' },
-  unknown: { badge: 'badge-restricted', label: 'Unknown' },
+const statusConfig: Record<RoadStatus, { badge: string; label: string; hint: string }> = {
+  closed:     { badge: 'badge-closed',      label: 'Closed',         hint: 'Road is closed to all traffic' },
+  restricted: { badge: 'badge-restricted',  label: 'Limited Access', hint: 'See details below' },
+  open:       { badge: 'badge-open',        label: 'Open',           hint: '' },
+  unknown:    { badge: 'badge-restricted',  label: 'Unknown',        hint: '' },
 }
 
 export default function RoadCard({ road, isSaved = false, onToggleSave }: RoadCardProps) {
@@ -59,6 +59,11 @@ export default function RoadCard({ road, isSaved = false, onToggleSave }: RoadCa
           )}
         </div>
       </div>
+
+      {/* Description — always shown so users know WHY */}
+      {road.description && (
+        <p className="text-ocean-300 text-sm leading-snug mb-2">{road.description}</p>
+      )}
 
       {/* Bottom row: location + timestamp */}
       <div className="flex items-center gap-4 text-ocean-400 text-xs">
