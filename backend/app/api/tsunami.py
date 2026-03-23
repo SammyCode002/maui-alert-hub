@@ -6,10 +6,11 @@ GET /api/tsunami/  - Active tsunami alerts for Hawaii from NWS/PTWC
 
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.models.schemas import TsunamiResponse
 from app.scrapers.tsunami_client import fetch_tsunami_alerts
+from app.services.limiter import limiter, GENERAL
 
 logger = logging.getLogger("maui_alert_hub.api.tsunami")
 
@@ -17,7 +18,8 @@ router = APIRouter()
 
 
 @router.get("/", response_model=TsunamiResponse)
-async def get_tsunami_alerts():
+@limiter.limit(GENERAL)
+async def get_tsunami_alerts(request: Request):
     """
     Get active tsunami alerts for Hawaii from the National Weather Service.
 

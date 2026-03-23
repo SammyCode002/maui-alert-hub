@@ -3,17 +3,19 @@
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.models.schemas import SurfResponse
 from app.scrapers.noaa_buoy_client import fetch_surf_conditions, get_cached_surf
+from app.services.limiter import limiter, GENERAL
 
 logger = logging.getLogger("maui_alert_hub.api.surf")
 router = APIRouter()
 
 
 @router.get("/", response_model=SurfResponse)
-async def get_surf():
+@limiter.limit(GENERAL)
+async def get_surf(request: Request):
     """
     Get current surf conditions from NOAA NDBC buoys near Maui.
 

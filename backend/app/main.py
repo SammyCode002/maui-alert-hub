@@ -15,6 +15,9 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.roads import router as roads_router
 from app.api.weather import router as weather_router
@@ -34,6 +37,7 @@ from app.scrapers.noaa_buoy_client import fetch_surf_conditions
 from app.scrapers.aqi_client import fetch_aqi
 from app.database import init_db
 from app.services.config import settings
+from app.services.limiter import limiter
 
 scheduler = AsyncIOScheduler()
 
@@ -118,6 +122,11 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS: allow the React frontend to talk to us
 app.add_middleware(

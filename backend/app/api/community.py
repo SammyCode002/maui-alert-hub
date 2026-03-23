@@ -8,10 +8,11 @@ Anyone can read; only admins can write (see api/admin.py).
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.database import DB_PATH
 from app.models.schemas import CommunityAlertsResponse, CommunityAlert
+from app.services.limiter import limiter, GENERAL
 
 import aiosqlite
 
@@ -20,7 +21,8 @@ router = APIRouter()
 
 
 @router.get("/", response_model=CommunityAlertsResponse)
-async def get_community_alerts():
+@limiter.limit(GENERAL)
+async def get_community_alerts(request: Request):
     """
     Get all active community alerts.
 

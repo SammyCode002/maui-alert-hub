@@ -9,12 +9,13 @@ import asyncio
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.models.schemas import RoadResponse
 from app.scrapers.road_scraper import get_cached_roads, scrape_road_closures
 from app.scrapers.dot_scraper import get_cached_dot_roads, scrape_dot_closures
 from app.services.push_service import check_and_notify_road_closures
+from app.services.limiter import limiter, GENERAL
 
 logger = logging.getLogger("maui_alert_hub.api.roads")
 
@@ -22,7 +23,8 @@ router = APIRouter()
 
 
 @router.get("/", response_model=RoadResponse)
-async def get_road_closures():
+@limiter.limit(GENERAL)
+async def get_road_closures(request: Request):
     """
     Get all current road closures and restrictions on Maui.
 
@@ -56,7 +58,8 @@ async def get_road_closures():
 
 
 @router.get("/refresh", response_model=RoadResponse)
-async def refresh_road_closures():
+@limiter.limit(GENERAL)
+async def refresh_road_closures(request: Request):
     """
     Force a fresh scrape from all sources (Maui County + Hawaii DOT).
     """

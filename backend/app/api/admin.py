@@ -12,11 +12,12 @@ import logging
 from datetime import datetime
 
 import aiosqlite
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 
 from app.database import DB_PATH
 from app.models.schemas import CommunityAlert, CommunityAlertCreate, CommunityAlertsResponse
 from app.services.config import settings
+from app.services.limiter import limiter, ADMIN
 
 logger = logging.getLogger("maui_alert_hub.api.admin")
 router = APIRouter()
@@ -32,7 +33,9 @@ def _require_admin(authorization: str | None) -> None:
 
 
 @router.post("/alerts", response_model=CommunityAlert, status_code=201)
+@limiter.limit(ADMIN)
 async def create_alert(
+    request: Request,
     body: CommunityAlertCreate,
     authorization: str | None = Header(default=None),
 ):
@@ -66,7 +69,9 @@ async def create_alert(
 
 
 @router.get("/alerts", response_model=CommunityAlertsResponse)
+@limiter.limit(ADMIN)
 async def list_all_alerts(
+    request: Request,
     authorization: str | None = Header(default=None),
 ):
     """List all community alerts including inactive/expired (admin view)."""
@@ -96,7 +101,9 @@ async def list_all_alerts(
 
 
 @router.delete("/alerts/{alert_id}", status_code=200)
+@limiter.limit(ADMIN)
 async def deactivate_alert(
+    request: Request,
     alert_id: int,
     authorization: str | None = Header(default=None),
 ):

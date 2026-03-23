@@ -8,18 +8,20 @@ GET  /api/notifications/vapid-public-key — return public key for frontend
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.models.schemas import PushSubscriptionCreate
 from app.services.config import settings
 from app.services.push_service import save_subscription, delete_subscription, update_subscription_routes
+from app.services.limiter import limiter, NOTIFY, GENERAL
 
 logger = logging.getLogger("maui_alert_hub.api.notifications")
 router = APIRouter()
 
 
 @router.get("/vapid-public-key")
-async def get_vapid_public_key():
+@limiter.limit(GENERAL)
+async def get_vapid_public_key(request: Request):
     """Return the VAPID public key so the frontend can subscribe."""
     if not settings.vapid_public_key:
         raise HTTPException(status_code=503, detail="Push notifications not configured")
@@ -27,7 +29,8 @@ async def get_vapid_public_key():
 
 
 @router.post("/subscribe", status_code=201)
-async def subscribe(body: PushSubscriptionCreate):
+@limiter.limit(NOTIFY)
+async def subscribe(request: Request, body: PushSubscriptionCreate):
     """
     Register a browser push subscription.
 
@@ -47,7 +50,8 @@ async def subscribe(body: PushSubscriptionCreate):
 
 
 @router.patch("/saved-routes")
-async def patch_saved_routes(body: dict):
+@limiter.limit(NOTIFY)
+async def patch_saved_routes(request: Request, body: dict):
     """Update saved road IDs for an existing push subscription."""
     endpoint = body.get("endpoint")
     saved_routes = body.get("saved_routes", [])
@@ -60,7 +64,8 @@ async def patch_saved_routes(body: dict):
 
 
 @router.delete("/unsubscribe")
-async def unsubscribe(body: dict):
+@limiter.limit(NOTIFY)
+async def unsubscribe(request: Request, body: dict):
     """Remove a push subscription by endpoint URL."""
     endpoint = body.get("endpoint")
     if not endpoint:

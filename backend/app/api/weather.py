@@ -11,7 +11,7 @@ Supported city values: kahului, lahaina, kihei, hana, paia, wailea
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from app.models.schemas import WeatherResponse
 from app.scrapers.nws_client import (
@@ -21,6 +21,7 @@ from app.scrapers.nws_client import (
     fetch_forecast_for_city,
 )
 from app.services.push_service import check_and_notify_new_alerts, get_alert_history
+from app.services.limiter import limiter, GENERAL
 
 logger = logging.getLogger("maui_alert_hub.api.weather")
 
@@ -28,7 +29,9 @@ router = APIRouter()
 
 
 @router.get("/", response_model=WeatherResponse)
+@limiter.limit(GENERAL)
 async def get_weather(
+    request: Request,
     city: str = Query(default="kahului", description="Maui city for forecast"),
 ):
     """
@@ -64,7 +67,8 @@ async def _fetch_weather(city_key: str):
 
 
 @router.get("/alerts")
-async def get_weather_alerts():
+@limiter.limit(GENERAL)
+async def get_weather_alerts(request: Request):
     """Get only active weather alerts for Maui County."""
     alerts = await fetch_alerts()
     return {
@@ -75,7 +79,9 @@ async def get_weather_alerts():
 
 
 @router.get("/history")
+@limiter.limit(GENERAL)
 async def get_weather_history(
+    request: Request,
     days: int = Query(default=7, ge=1, le=30, description="Number of days to look back"),
 ):
     """Return NWS alert history for the last N days, newest first."""
@@ -84,7 +90,9 @@ async def get_weather_history(
 
 
 @router.get("/forecast")
+@limiter.limit(GENERAL)
 async def get_weather_forecast(
+    request: Request,
     city: str = Query(default="kahului", description="Maui city for forecast"),
 ):
     """

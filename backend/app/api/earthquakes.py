@@ -7,10 +7,11 @@ GET /api/earthquakes/ - Get recent earthquakes near Maui (all main Hawaiian Isla
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from app.models.schemas import EarthquakeResponse
 from app.scrapers.usgs_client import fetch_earthquakes
+from app.services.limiter import limiter, GENERAL
 
 logger = logging.getLogger("maui_alert_hub.api.earthquakes")
 
@@ -18,7 +19,8 @@ router = APIRouter()
 
 
 @router.get("/", response_model=EarthquakeResponse)
-async def get_earthquakes():
+@limiter.limit(GENERAL)
+async def get_earthquakes(request: Request):
     """
     Get recent earthquakes within 300km of Maui from the USGS.
 

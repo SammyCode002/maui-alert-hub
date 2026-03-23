@@ -9,13 +9,16 @@ they restart it automatically. Simple but essential.
 
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+
+from app.services.limiter import limiter, GENERAL
 
 router = APIRouter()
 
 
 @router.get("/health")
-async def health_check():
+@limiter.limit(GENERAL)
+async def health_check(request: Request):
     """Returns the current status of the API."""
     return {
         "status": "healthy",
