@@ -16,7 +16,7 @@ from app.services.limiter import limiter, GENERAL
 router = APIRouter()
 
 
-@router.get("/health")
+@router.api_route("/health", methods=["GET", "HEAD"])
 @limiter.limit(GENERAL)
 async def health_check(request: Request):
     """Returns the current status of the API."""
