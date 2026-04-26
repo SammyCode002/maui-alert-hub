@@ -41,6 +41,10 @@ from app.services.limiter import limiter
 
 scheduler = AsyncIOScheduler()
 
+# Per-scraper timeout for the initial warmup gather. Beyond this,
+# the scraper is logged as timed out and the rest of startup continues.
+WARMUP_TIMEOUT_S = 30
+
 
 # ============================================================
 # Logging Setup
@@ -54,14 +58,70 @@ logger = logging.getLogger("maui_alert_hub")
 
 
 # ============================================================
+# Cache warmup helpers
+# ============================================================
+async def _warm_one(name: str, fn, timeout_s: int = WARMUP_TIMEOUT_S) -> None:
+    """
+    Run a single warmup scraper with a hard timeout and exception capture.
+
+    WHY: A hung external API (NWS, USGS, county site) used to stall the entire
+    startup gather, which kept /api/health unreachable for minutes and tripped
+    UptimeRobot. Wrapping each scraper in wait_for plus try/except lets one
+    bad source fail loudly without blocking the rest.
+
+    Args:
+        name: Scraper label for logs.
+        fn: Async callable with no args.
+        timeout_s: Max seconds before the scraper is abandoned.
+    """
+    start = time.time()
+    try:
+        await asyncio.wait_for(fn(), timeout=timeout_s)
+        logger.info(f"warmup ok | {name} | {time.time() - start:.2f}s")
+    except asyncio.TimeoutError:
+        logger.warning(f"warmup timeout | {name} | gave up after {timeout_s}s")
+    except Exception as exc:
+        logger.error(
+            f"warmup failed | {name} | {time.time() - start:.2f}s | {exc}",
+            exc_info=True,
+        )
+
+
+async def _warm_all_caches() -> None:
+    """
+    Run all initial scrapers in parallel as a background task.
+
+    Fired with asyncio.create_task during lifespan startup so the API is
+    immediately ready to serve /api/health while caches populate behind it.
+    First page loads after a cold start may briefly show empty data, then
+    populate as each scraper completes.
+    """
+    logger.info("background cache warmup started")
+    start = time.time()
+    await asyncio.gather(
+        _warm_one("road_closures", scrape_road_closures),
+        _warm_one("dot_closures", scrape_dot_closures),
+        _warm_one("volcanic", fetch_volcanic_alerts),
+        _warm_one("surf", fetch_surf_conditions),
+        _warm_one("aqi", fetch_aqi),
+        return_exceptions=True,
+    )
+    logger.info(f"background cache warmup complete | {time.time() - start:.2f}s")
+
+
+# ============================================================
 # App Lifespan (startup/shutdown events)
 # ============================================================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Runs on startup and shutdown.
-    Startup: warm road cache, start background scrape scheduler.
+    Startup: init DB, fire scrapers in background, start scheduler.
     Shutdown: stop scheduler, clean up resources.
+
+    NOTE: Scrapers used to run via blocking asyncio.gather here, which delayed
+    /api/health for minutes during cold starts. They now run as a background
+    task so health responds immediately and Render's healthCheck does not fail.
     """
     logger.info("Starting Maui Alert Hub API")
     logger.info(f"Environment: {settings.environment}")
@@ -70,15 +130,8 @@ async def lifespan(app: FastAPI):
     # Initialize database tables
     await init_db()
 
-    # Warm all caches immediately on startup so first request is fast
-    logger.info("Warming data caches on startup...")
-    await asyncio.gather(
-        scrape_road_closures(),
-        scrape_dot_closures(),
-        fetch_volcanic_alerts(),
-        fetch_surf_conditions(),
-        fetch_aqi(),
-    )
+    # Fire warmup in the background so startup does not block on external APIs
+    asyncio.create_task(_warm_all_caches())
 
     # Schedule periodic background scraping
     scheduler.add_job(
