@@ -22,6 +22,7 @@ from pywebpush import webpush, WebPushException
 
 from app.database import engine
 from app.services.config import settings
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.push")
 
@@ -117,7 +118,7 @@ async def record_alert_history(alerts) -> None:
 
 async def get_alert_history(days: int = 7) -> list[dict]:
     """Return alert history for the last N days, newest first."""
-    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    cutoff = (utcnow() - timedelta(days=days)).isoformat()
     async with engine.connect() as conn:
         result = await conn.execute(text(
             """SELECT * FROM alert_history

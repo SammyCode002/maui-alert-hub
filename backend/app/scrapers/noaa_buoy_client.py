@@ -23,6 +23,7 @@ from typing import Optional
 import httpx
 
 from app.models.schemas import SurfSpot
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.buoy")
 
@@ -67,7 +68,7 @@ async def fetch_surf_conditions() -> list[SurfSpot]:
 
     if spots:
         _surf_cache = spots
-        _surf_last_fetched = datetime.now()
+        _surf_last_fetched = utcnow()
 
     duration_ms = (time.time() - start_time) * 1000
     logger.info(
@@ -139,7 +140,7 @@ def _parse_buoy_text(text: str, buoy_id: str, name: str) -> Optional[SurfSpot]:
                 period_sec=period_sec,
                 direction=direction,
                 water_temp_f=water_temp_f,
-                updated_at=datetime.now(),
+                updated_at=utcnow(),
             )
         except (ValueError, IndexError):
             continue

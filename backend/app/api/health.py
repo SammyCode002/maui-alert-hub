@@ -12,6 +12,7 @@ from datetime import datetime
 from fastapi import APIRouter, Request
 
 from app.services.limiter import limiter, GENERAL
+from app.utils.time import utcnow
 
 router = APIRouter()
 
@@ -22,6 +23,6 @@ async def health_check(request: Request):
     """Returns the current status of the API."""
     return {
         "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": utcnow().isoformat(),
         "version": "0.1.0",
     }

@@ -22,6 +22,7 @@ from typing import Optional
 import httpx
 
 from app.models.schemas import VolcanicAlert
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.volcano")
 
@@ -63,7 +64,7 @@ async def fetch_volcanic_alerts() -> list[VolcanicAlert]:
                 alerts.append(alert)
 
         _volcano_cache = alerts
-        _volcano_last_fetched = datetime.now()
+        _volcano_last_fetched = utcnow()
 
         duration_ms = (time.time() - start_time) * 1000
         logger.info(

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 from app.models.schemas import VolcanicResponse
 from app.scrapers.usgs_volcano_client import fetch_volcanic_alerts, get_cached_volcanic_alerts
 from app.services.limiter import limiter, GENERAL
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.api.volcanic")
 router = APIRouter()
@@ -32,5 +33,5 @@ async def get_volcanic_alerts(request: Request):
     return VolcanicResponse(
         alerts=alerts,
         total=len(alerts),
-        last_updated=last_fetched or datetime.now(),
+        last_updated=last_fetched or utcnow(),
     )

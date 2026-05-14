@@ -14,6 +14,7 @@ from sqlalchemy import text
 from app.database import engine
 from app.models.schemas import CommunityAlertsResponse, CommunityAlert
 from app.services.limiter import limiter, GENERAL
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.api.community")
 router = APIRouter()
@@ -27,7 +28,7 @@ async def get_community_alerts(request: Request):
 
     Excludes expired alerts (expires_at in the past) and inactive ones.
     """
-    now = datetime.now().isoformat()
+    now = utcnow().isoformat()
 
     async with engine.connect() as conn:
         result = await conn.execute(text(

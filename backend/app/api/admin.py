@@ -18,6 +18,7 @@ from app.database import engine
 from app.models.schemas import CommunityAlert, CommunityAlertCreate, CommunityAlertsResponse
 from app.services.config import settings
 from app.services.limiter import limiter, ADMIN
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.api.admin")
 router = APIRouter()
@@ -67,7 +68,7 @@ async def create_alert(
         title=body.title,
         message=body.message,
         severity=body.severity,
-        created_at=datetime.now(),
+        created_at=utcnow(),
         expires_at=body.expires_at,
         is_active=True,
     )

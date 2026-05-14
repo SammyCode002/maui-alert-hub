@@ -23,6 +23,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.models.schemas import RoadClosure, RoadStatus
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.dot_scraper")
 
@@ -95,13 +96,13 @@ async def scrape_dot_closures() -> list[RoadClosure]:
                 description=text[:300],
                 location=_dot_extract_location(text),
                 source="Hawaii DOT",
-                updated_at=datetime.now(),
+                updated_at=utcnow(),
             )
             closures.append(closure)
             i += 1
 
         _dot_cache = closures
-        _dot_last_scraped = datetime.now()
+        _dot_last_scraped = utcnow()
 
         duration_ms = (time.time() - start_time) * 1000
         logger.info(

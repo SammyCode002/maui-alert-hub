@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request
 from app.models.schemas import SurfResponse
 from app.scrapers.noaa_buoy_client import fetch_surf_conditions, get_cached_surf
 from app.services.limiter import limiter, GENERAL
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.api.surf")
 router = APIRouter()
@@ -32,5 +33,5 @@ async def get_surf(request: Request):
 
     return SurfResponse(
         spots=spots,
-        last_updated=last_fetched or datetime.now(),
+        last_updated=last_fetched or utcnow(),
     )

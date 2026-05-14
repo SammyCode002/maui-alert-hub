@@ -17,6 +17,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.utils.time import utcnow
+
 
 # ============================================================
 # Enums (predefined choices)
@@ -71,7 +73,7 @@ class RoadClosure(BaseModel):
     description: str = Field(..., description="Details about the closure or restriction")
     location: Optional[str] = Field(None, description="Specific location on the road")
     source: str = Field(default="Maui County", description="Where this info came from")
-    updated_at: datetime = Field(default_factory=datetime.now, description="When this was last updated")
+    updated_at: datetime = Field(default_factory=utcnow, description="When this was last updated")
 
 
 class RoadResponse(BaseModel):
@@ -207,7 +209,7 @@ class SurfSpot(BaseModel):
     period_sec: Optional[float] = Field(None, description="Dominant wave period in seconds")
     direction: Optional[str] = Field(None, description="Wave direction (e.g., 'NW')")
     water_temp_f: Optional[float] = Field(None, description="Sea surface temperature in Fahrenheit")
-    updated_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SurfResponse(BaseModel):

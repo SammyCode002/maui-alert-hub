@@ -14,6 +14,7 @@ from datetime import datetime
 from fastapi import APIRouter, Query, Request
 
 from app.models.schemas import WeatherResponse
+from app.utils.time import utcnow
 from app.scrapers.nws_client import (
     MAUI_CITIES,
     fetch_alerts,
@@ -51,7 +52,7 @@ async def get_weather(
         alerts=alerts,
         forecasts=forecasts,
         location=f"{city_label}, Maui",
-        last_updated=datetime.now(),
+        last_updated=utcnow(),
     )
 
 
@@ -74,7 +75,7 @@ async def get_weather_alerts(request: Request):
     return {
         "alerts": alerts,
         "total": len(alerts),
-        "last_updated": datetime.now().isoformat(),
+        "last_updated": utcnow().isoformat(),
     }
 
 
@@ -113,5 +114,5 @@ async def get_weather_forecast(
         "location": f"{city_label}, Maui",
         "city": city_key,
         "available_cities": {k: v["label"] for k, v in MAUI_CITIES.items()},
-        "last_updated": datetime.now().isoformat(),
+        "last_updated": utcnow().isoformat(),
     }

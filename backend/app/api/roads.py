@@ -16,6 +16,7 @@ from app.scrapers.road_scraper import get_cached_roads, scrape_road_closures
 from app.scrapers.dot_scraper import get_cached_dot_roads, scrape_dot_closures
 from app.services.push_service import check_and_notify_road_closures
 from app.services.limiter import limiter, GENERAL
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.api.roads")
 
@@ -41,7 +42,7 @@ async def get_road_closures(request: Request):
             scrape_road_closures(),
             scrape_dot_closures(),
         )
-        county_scraped = datetime.now()
+        county_scraped = utcnow()
 
     all_roads = county_roads + dot_roads
     last_scraped = county_scraped or dot_scraped
@@ -76,5 +77,5 @@ async def refresh_road_closures(request: Request):
     return RoadResponse(
         roads=all_roads,
         total=len(all_roads),
-        last_scraped=datetime.now(),
+        last_scraped=utcnow(),
     )

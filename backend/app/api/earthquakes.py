@@ -12,6 +12,7 @@ from fastapi import APIRouter, Request
 from app.models.schemas import EarthquakeResponse
 from app.scrapers.usgs_client import fetch_earthquakes
 from app.services.limiter import limiter, GENERAL
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.api.earthquakes")
 
@@ -31,5 +32,5 @@ async def get_earthquakes(request: Request):
     return EarthquakeResponse(
         earthquakes=earthquakes,
         total=len(earthquakes),
-        last_updated=datetime.now(),
+        last_updated=utcnow(),
     )

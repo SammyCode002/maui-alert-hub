@@ -20,6 +20,7 @@ import httpx
 
 from app.models.schemas import AQIReading, AQIResponse
 from app.services.config import settings
+from app.utils.time import utcnow
 
 logger = logging.getLogger("maui_alert_hub.aqi")
 
@@ -55,7 +56,7 @@ async def fetch_aqi() -> AQIResponse:
 
     if not settings.epa_aqi_api_key:
         logger.warning("OUTPUT | fetch_aqi | EPA_AQI_API_KEY not set | SKIP")
-        return AQIResponse(readings=[], last_updated=datetime.now())
+        return AQIResponse(readings=[], last_updated=utcnow())
 
     # Serve from cache if fresh
     if _aqi_cache is not None and (time.time() - _aqi_last_fetched) < _CACHE_TTL_SECONDS:
@@ -105,7 +106,7 @@ async def fetch_aqi() -> AQIResponse:
         result = AQIResponse(
             readings=readings,
             location="Maui, Hawaii",
-            last_updated=datetime.now(),
+            last_updated=utcnow(),
             is_vog_advisory=is_vog,
         )
         _aqi_cache = result
@@ -125,4 +126,4 @@ async def fetch_aqi() -> AQIResponse:
         )
         if _aqi_cache is not None:
             return _aqi_cache
-        return AQIResponse(readings=[], last_updated=datetime.now())
+        return AQIResponse(readings=[], last_updated=utcnow())
