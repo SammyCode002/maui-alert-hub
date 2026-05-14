@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { MapPin, CloudLightning, Route, Activity, Flame, Waves, Megaphone, Wind, TriangleAlert, Map, History, ChevronDown, ChevronUp } from 'lucide-react'
+import { Analytics } from '@vercel/analytics/react'
 import Header from './components/Header'
 import BottomNav from './components/BottomNav'
 import type { NavTab } from './components/BottomNav'
@@ -483,6 +484,7 @@ export default function App() {
           <p className="mt-1">Data from NWS, USGS, NOAA, EPA AirNow, and Maui County. Not an official government source.</p>
         </footer>
       </main>
+      <Analytics />
     </div>
   )
 }
