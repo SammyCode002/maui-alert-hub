@@ -10,6 +10,9 @@
 <p align="center">
   <a href="https://maui-alert-hub.vercel.app" target="_blank"><strong>Live site →</strong></a>
 </p>
+<p align="center">
+  <img src="docs/readme-preview.png" width="100%" alt="maui-alert-hub-preview"/>
+</p>
 
 ## why this exists
 
