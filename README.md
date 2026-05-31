@@ -156,7 +156,7 @@ maui-alert-hub/
 
 ## contributing
 
-Built by Sam Dameg from Maui. Open to contributions from fellow island residents who want to make this better for the community. PRs, bug reports, and feature requests welcome.
+Built by Sam Dameg. Open to contributions from fellow island residents who want to make this better for the community. PRs, bug reports, and feature requests welcome.
 
 ## license
 
